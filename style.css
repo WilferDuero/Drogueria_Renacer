@@ -1323,3 +1323,26 @@ body.modal-open { overflow: hidden; }
   font-size: 12px;
   opacity: 0.95;
 }
+.footer-brand{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap:wrap;
+}
+.footer-whatsapp-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  text-decoration:none;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+}
+.footer-whatsapp-btn:hover{
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+}
