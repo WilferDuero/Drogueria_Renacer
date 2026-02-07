@@ -803,9 +803,8 @@ body.modal-open { overflow: hidden; }
   .header-center{ order: 3; width: 100%; padding-top: 6px; }
   .header-right{ order: 2; }
   .site-footer{ padding-bottom: 80px; }
-  .wa-float{ bottom: 96px; left: 16px; right: auto; }
-  .footer-brand{ position: relative; z-index: 95; }
-  .footer-whatsapp-btn{ position: relative; z-index: 95; }
+  .site-footer{ position: relative; z-index: 95; }
+  .wa-float{ bottom: 96px; right: 18px; left: auto; }
 }
 
 /* ----------------------------
