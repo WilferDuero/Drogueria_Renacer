@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Droguería Renacer — Sistema Web</title>
+  <link rel="stylesheet" href="style.css?v=20260207" />
+</head>
+
+<body>
+  <!-- Encabezado principal -->
+  <header class="site-header">
+    <div style="display:flex;gap:12px;align-items:center">
+      <img src="https://i.ibb.co/bRFJK7Hn/logo-drogueria.jpg" alt="logo" class="brand-logo">
+      <div class="brand-text">
+        <h1>Droguería Renacer</h1>
+        <div class="tagline">Tu salud es nuestra prioridad</div>
+      </div>
+    </div>
+
+    <div class="header-center" style="max-width:700px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="searchInput" type="search" placeholder="Buscar medicamentos, vitaminas..." />
+        <select id="categorySelect" style="width:160px;padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)">
+          <option value="all">Todas las categorías</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <a href="admin_login.html" class="admin-link" title="Ingreso admin">Iniciar sesión</a>
+
+      <!-- ✅ Mis pedidos -->
+      <button id="myOrdersBtn" class="icon-btn" aria-label="Ver mis pedidos" type="button">
+        📦 Mis pedidos <span id="myOrdersCount" class="badge-pill">0</span>
+      </button>
+
+      <button id="cartBtn" class="icon-btn" aria-label="Abrir carrito" type="button">
+        🛒 <span id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Tienda -->
+  <main id="view-store">
+    <section class="hero">
+      <div class="hero-inner container">
+        <div class="hero-copy">
+          <div class="hero-eyebrow">Drogueria local en Facatativa</div>
+          <h2>Medicamentos, vitaminas y cuidado personal</h2>
+          <p>Entrega a domicilio en Facatativa · Atencion farmaceutica · Ofertas permanentes</p>
+          <div class="hero-actions">
+            <a class="btn primary" target="_blank" href="https://wa.me/573133585508">Pedir por WhatsApp</a>
+            <a class="btn ghost" href="#productsSection">Ver productos</a>
+          </div>
+          <div class="hero-badges">
+            <span class="pill hero-pill">Atencion farmaceutica</span>
+            <span class="pill hero-pill">Medicamentos originales</span>
+            <span class="pill hero-pill">Entrega local</span>
+          </div>
+        </div>
+
+        <div class="hero-card box">
+          <div class="hero-card-title">Horario de atencion</div>
+          <div class="hero-card-row">Lun a Sab: 9:00am - 9:00pm</div>
+          <div class="hero-card-row">Dom/Fest: 8:00am - 9:00pm</div>
+          <div class="hero-card-row muted">Cobertura local y coordinacion por WhatsApp</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ✅ OFERTAS -->
+    <section id="offersSection" class="container" style="display:none;">
+      <div class="offers-head">
+        <div class="offers-title">
+          🔥 Ofertas <span class="chip">Promo</span>
+        </div>
+        <div id="offersCount"></div>
+      </div>
+
+      <div id="offersGrid"></div>
+
+      <div class="offers-foot">
+        <div id="offersPagination" class="offers-pagination" style="display:none;">
+          <button id="offersPrev" class="btn ghost" type="button" aria-label="Ofertas anterior">◀ Anterior</button>
+          <div id="offersPage" class="offers-page">Página 1 de 1</div>
+          <button id="offersNext" class="btn ghost" type="button" aria-label="Ofertas siguiente">Siguiente ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" id="categoriesSection">
+      <h3 class="section-title">Categorias destacadas</h3>
+      <div class="category-grid">
+        <button class="category-card" type="button" data-category="all">Todos</button>
+        <button class="category-card" type="button" data-category="Medicamentos">Medicamentos</button>
+        <button class="category-card" type="button" data-category="Suplementos">Suplementos</button>
+        <button class="category-card" type="button" data-category="Higiene">Higiene</button>
+        <button class="category-card" type="button" data-category="Vitaminas">Vitaminas</button>
+        <button class="category-card" type="button" data-category="Otro">Otros</button>
+      </div>
+    </section>
+
+    <section class="container" id="productsSection">
+      <h3 class="section-title">Productos destacados</h3>
+      <div id="productsGrid" class="products-grid"></div>
+    </section>
+
+    <!-- ✅ Servicios / Confianza -->
+    <section class="container">
+      <h3 class="section-title">¿Por qué comprar con nosotros?</h3>
+      <div class="trust-grid">
+        <div class="box trust-card">
+          <div class="trust-ico">🚚</div>
+          <div>
+            <div class="trust-title">Domicilio en Facatativá</div>
+            <div class="muted">Entrega rápida y confirmación por WhatsApp.</div>
+          </div>
+        </div>
+
+        <div class="box trust-card">
+          <div class="trust-ico">💊</div>
+          <div>
+            <div class="trust-title">Asesoría responsable</div>
+            <div class="muted">Te ayudamos a elegir presentación y uso correcto.</div>
+          </div>
+        </div>
+
+        <div class="box trust-card">
+          <div class="trust-ico">💳</div>
+          <div>
+            <div class="trust-title">Pagos fáciles</div>
+            <div class="muted">Nequi / Daviplata / Efectivo contra entrega.</div>
+            <div class="payment-chips">
+              <span class="payment-chip">
+                <img src="assets/payments/Logo_Nequi.svg" alt="Logo Nequi">
+                <span>Nequi</span>
+              </span>
+              <span class="payment-chip">
+                <img src="assets/payments/Logo_DaviPlata.svg" alt="Logo Daviplata">
+                <span>Daviplata</span>
+              </span>
+              <span class="payment-chip">
+                <img src="assets/payments/efectivo.svg" alt="Efectivo">
+                <span>Efectivo</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="box trust-card">
+          <div class="trust-ico">✅</div>
+          <div>
+            <div class="trust-title">Productos verificados</div>
+            <div class="muted">Control de stock y pedidos confirmados por el vendedor.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" id="benefitsSection">
+      <h3 class="section-title">Beneficios reales</h3>
+      <div class="benefits-grid">
+        <div class="box benefit-item">
+          <div class="benefit-title">Atencion profesional</div>
+          <div class="muted">Acompanamiento en el uso correcto y presentaciones.</div>
+        </div>
+        <div class="box benefit-item">
+          <div class="benefit-title">Promos semanales</div>
+          <div class="muted">Ofertas rotativas segun disponibilidad.</div>
+        </div>
+        <div class="box benefit-item">
+          <div class="benefit-title">Control de stock</div>
+          <div class="muted">Disponibilidad validada antes de confirmar.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ✅ Opiniones / Reseñas -->
+    <section class="container" id="reviewsSection">
+      <h3 class="section-title">Opiniones de clientes</h3>
+
+      <div class="reviews-summary">
+        <div class="avg-box">
+          <div class="avg-num" id="avgRatingNum">0.0</div>
+          <div>
+            <div class="avg-stars" id="avgRatingStars">☆☆☆☆☆</div>
+            <div class="muted" style="font-size:12px;">
+              <span id="avgRatingCount">0</span> opinión(es)
+            </div>
+          </div>
+        </div>
+        <div class="muted" style="font-size:12px;">
+          🔒 1 opinión por teléfono · 🧾 “Verificada” si existe un pedido real
+        </div>
+      </div>
+
+      <div id="reviewsGrid" class="reviews-grid"></div>
+
+      <div class="box" style="margin-top:14px;">
+        <h4 style="margin:0 0 10px 0;">Deja tu opinión</h4>
+        <div class="muted" style="font-size:12px;margin-bottom:10px;">
+          *Por ahora se guarda en este dispositivo (demo). Más adelante se conecta a base de datos.*
+        </div>
+
+        <input id="reviewName" type="text" placeholder="Tu nombre *">
+        <input id="reviewPhone" type="tel" placeholder="Tu teléfono (para evitar spam) *">
+
+        <div class="rating-row">
+          <div class="muted" style="font-size:12px;">Calificación *</div>
+          <div id="reviewStars" class="stars" aria-label="Calificación en estrellas"></div>
+          <input id="reviewRating" type="hidden" value="0">
+        </div>
+
+        <textarea id="reviewText" rows="4" placeholder="Escribe tu comentario *"></textarea>
+
+        <div class="inline-row" style="margin-top:10px;">
+          <button id="submitReview" class="btn primary" type="button">Enviar opinión</button>
+          <button id="clearReviewsLocal" class="btn ghost" type="button" title="Borra reseñas guardadas en este dispositivo">
+            🧹 Borrar reseñas (solo aquí)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ✅ FAQ -->
+    <section class="container" id="faqSection">
+      <h3 class="section-title">Preguntas frecuentes</h3>
+      <div class="faq">
+        <details>
+          <summary>💳 ¿Qué medios de pago aceptan?</summary>
+          <div class="faq-body muted">
+            Aceptamos <b>Nequi</b>, <b>Daviplata</b> y <b>efectivo contra entrega</b>.
+          </div>
+        </details>
+        <details>
+          <summary>🚚 ¿Cómo funciona el domicilio?</summary>
+          <div class="faq-body muted">
+            El pedido se envía por WhatsApp y queda <b>PENDIENTE</b> hasta que el vendedor lo acepte y confirme disponibilidad.
+          </div>
+        </details>
+        <details>
+          <summary>⏱️ ¿Cuánto tarda la entrega?</summary>
+          <div class="faq-body muted">
+            Depende de la zona y disponibilidad. Normalmente coordinamos el tiempo de entrega por WhatsApp.
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ✅ Ubicación / Horarios / Mapa -->
+    <section class="container" id="visitSection">
+      <h3 class="section-title">Nuestra sede</h3>
+      <div class="visit-grid">
+        <div class="visit-info">
+          <div class="box visit-card">
+            <div class="visit-title">Sede principal</div>
+            <div class="visit-row">📍 Calle 2A Este No. 7-04, Facatativá</div>
+            <div class="visit-row">NIT: 35532466-9</div>
+            <div class="visit-actions">
+              <a class="btn btn--primary" target="_blank"
+                href="https://www.google.com/maps/search/?api=1&query=Calle+2A+Este+No.+7-04+Facatativ%C3%A1">
+                Abrir en Google Maps
+              </a>
+              <a class="btn btn--secondary" target="_blank" href="https://wa.me/573133585508">
+                WhatsApp
+              </a>
+            </div>
+          </div>
+
+          <div class="box visit-card">
+            <div class="visit-title">Horarios y cobertura</div>
+            <div class="visit-row">Lun a Sab: 9:00am - 9:00pm</div>
+            <div class="visit-row">Dom/Fest: 8:00am - 9:00pm</div>
+            <div class="visit-row muted">Domicilios en Facatativá y alrededores cercanos.</div>
+            <div class="visit-badges">
+              <span class="pill">Entrega local</span>
+              <span class="pill">Coordinacion por WhatsApp</span>
+            </div>
+          </div>
+
+          <div class="box visit-card">
+            <div class="visit-title">Medios de pago</div>
+            <div class="payment-chips">
+              <span class="payment-chip">
+                <img src="assets/payments/Logo_Nequi.svg" alt="Logo Nequi">
+                <span>Nequi</span>
+              </span>
+              <span class="payment-chip">
+                <img src="assets/payments/Logo_DaviPlata.svg" alt="Logo Daviplata">
+                <span>Daviplata</span>
+              </span>
+              <span class="payment-chip">
+                <img src="assets/payments/efectivo.svg" alt="Efectivo">
+                <span>Efectivo</span>
+              </span>
+            </div>
+            <div class="visit-row muted">Pago contra entrega y confirmacion previa.</div>
+          </div>
+        </div>
+
+        <div class="box visit-map">
+          <div class="visit-title">Mapa</div>
+          <div class="visit-row muted">Encuentranos rapidamente</div>
+          <div class="map-embed">
+            <iframe title="Mapa Droguería Renacer" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+              src="https://www.google.com/maps?q=Calle%202A%20Este%20No.%207-04%20Facatativ%C3%A1&output=embed">
+            </iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="notif" class="notif" aria-live="polite" role="status">¡Añadido al carrito!</div>
+
+  <!-- ✅ Modal carrito -->
+  <div id="cartModal" class="cart-modal hidden" aria-hidden="true">
+    <div class="cart-panel">
+      <button id="closeCart" class="close-x" aria-label="Cerrar carrito">×</button>
+      <h3>Tu carrito</h3>
+
+      <div id="cartItems" class="cart-items"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div>Total:</div>
+        <div id="cartTotal" class="cart-total-val">-</div>
+      </div>
+
+      <div class="box" style="margin-top:14px; padding:14px;">
+        <h4 style="margin:0 0 10px 0; font-size:14px;">Datos para el pedido</h4>
+        <input id="clienteNombre" type="text" placeholder="Nombre *">
+        <input id="clienteTelefono" type="text" placeholder="Teléfono (WhatsApp) *">
+        <input id="clienteDireccion" type="text" placeholder="Dirección (opcional)">
+
+        <div class="inline-row" style="margin-top:10px;">
+          <label class="inline-check">
+            <input id="rememberCustomer" type="checkbox" checked>
+            Recordar mis datos en este dispositivo
+          </label>
+          <button id="clearCustomerBtn" class="btn ghost small" type="button" title="Borrar datos guardados">
+            🧹 Borrar mis datos
+          </button>
+        </div>
+
+        <div class="muted" style="font-size:12px;margin-top:8px;">
+          Se guarda <b>solo en este dispositivo</b>. Al enviar, tu pedido quedará <b>PENDIENTE</b> hasta que el vendedor lo acepte.
+        </div>
+      </div>
+
+      <div class="cart-actions">
+        <button id="sendWhatsapp" class="btn whatsapp">📤 Enviar pedido</button>
+        <button id="clearCart" class="btn ghost">Vaciar carrito</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Modal Mis pedidos -->
+  <div id="myOrdersModal" class="cart-modal hidden" aria-hidden="true">
+    <div class="cart-panel" style="max-width: 720px;">
+      <button id="closeMyOrders" class="close-x" aria-label="Cerrar mis pedidos">×</button>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">Mis pedidos</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="myOrdersFilter" class="form-control" style="width:auto;min-width:180px;">
+            <option value="all">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aceptado">Aceptado</option>
+            <option value="rechazado">Rechazado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+          <button id="btnRefreshMyOrders" class="btn btn--primary" type="button">Actualizar</button>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:12px;margin-top:8px;">
+        *Se muestran los pedidos guardados en este dispositivo.*
+      </div>
+
+      <div class="box" style="margin-top:10px; padding:12px;">
+        <div class="inline-row">
+          <label class="inline-check">
+            <input id="myOrdersOnlyMine" type="checkbox">
+            Solo mis pedidos (por teléfono)
+          </label>
+          <input id="myOrdersPhoneFilter" type="tel" class="form-control"
+            placeholder="Teléfono para filtrar (opcional)"
+            style="max-width:260px; margin:0;">
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:6px;">
+          Tip: si marcaste “Recordar mis datos”, se usa tu teléfono automáticamente.
+        </div>
+      </div>
+
+      <div id="myOrdersList" style="display:grid;gap:12px;margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ✅ Botón flotante WhatsApp -->
+  <a class="wa-float" href="https://wa.me/573133585508" target="_blank" aria-label="WhatsApp Droguería Renacer">
+    <span class="wa-ico">💬</span>
+    <span class="wa-text">
+      WhatsApp <span class="wa-sub">Atencion y dudas</span>
+    </span>
+  </a>
+
+  <!-- Pie de página -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="footer-title">Droguería Renacer</div>
+          <div class="footer-text">Calle 2A Este No. 7-04, Facatativá</div>
+          <div class="footer-text">NIT: 35532466-9</div>
+          <a class="footer-link" href="https://wa.me/573133585508" target="_blank">
+            WhatsApp: +57 313 3585508
+          </a>
+        </div>
+
+        <div class="footer-col">
+          <div class="footer-title">Horarios</div>
+          <div class="footer-text">Lun a Sab: 9:00am - 9:00pm</div>
+          <div class="footer-text">Dom/Fest: 8:00am - 9:00pm</div>
+        </div>
+
+        <div class="footer-col">
+          <div class="footer-title">Servicios</div>
+          <div class="footer-text">Domicilio local</div>
+          <div class="footer-text">Asesoria farmaceutica</div>
+          <div class="footer-text">Pagos faciles</div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 Droguería Renacer</div>
+        <div class="legal-note">La informacion presentada no sustituye la consulta medica profesional.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ✅ JS con defer y orden correcto -->
+  <script defer src="js/core.js?v=20260207"></script>
+  <script defer src="js/store.js?v=20260207"></script>
+</body>
+</html>

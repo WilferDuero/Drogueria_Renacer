@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Droguería Renacer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Contenedor de notificaciones (toast) -->
+  <div id="notif" class="notif" aria-live="polite" role="status"></div>
+
+  <!-- Encabezado del panel administrativo -->
+  <header class="site-header">
+    <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
+      <img src="https://i.ibb.co/bRFJK7Hn/logo-drogueria.jpg" alt="logo" class="brand-logo">
+      <div class="brand-text">
+        <h1>Droguería Renacer</h1>
+        <div class="tagline">Panel Administrativo</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <a href="index.html" class="admin-link">Ver Tienda</a>
+      <button id="logoutBtn" class="btn danger" style="padding: 8px 16px; font-size: 14px;" type="button">
+        Cerrar Sesión
+      </button>
+    </div>
+  </header>
+
+  <main style="padding: 20px;">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <!-- Resumen general -->
+      <section class="admin-dashboard">
+        <div class="admin-dashboard-header">
+          <h2>Estadísticas en Tiempo Real</h2>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card stat-card-1">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <h3>Total de Productos</h3>
+              <p id="statTotalProds" class="stat-value">0</p>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-2">
+            <div class="stat-icon">📂</div>
+            <div class="stat-content">
+              <h3>Categorías</h3>
+              <p id="statCategs" class="stat-value">0</p>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-3a">
+            <div class="stat-icon">📅</div>
+            <div class="stat-content">
+              <h3>Ingresos Hoy</h3>
+              <p id="statIngresosDiarios" class="stat-value">$0</p>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-3b">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <h3>Ingresos Este Mes</h3>
+              <p id="statIngresosMensuales" class="stat-value">$0</p>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-3c">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+              <h3>Ingresos Este Año</h3>
+              <p id="statIngresosAnuales" class="stat-value">$0</p>
+            </div>
+          </article>
+
+          
+
+          <article class="stat-card stat-card-5">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+              <h3>Ventas Totales</h3>
+              <p id="statVentasTotales" class="stat-value">0</p>
+            </div>
+          </article>
+
+          <article class="stat-card stat-card-6">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+              <h3>Ingresos Ventas</h3>
+              <p id="statIngresosVentas" class="stat-value">$0</p>
+            </div>
+          </article>
+
+          <article id="statAlertasCard" class="stat-card stat-card-7" style="cursor:pointer;">
+            <div class="stat-icon">🚨</div>
+            <div class="stat-content">
+              <h3>Alertas Stock</h3>
+              <p id="statAlertas" class="stat-value">0</p>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <div style="display: flex; gap: 8px; margin: 24px 0; border-bottom: 2px solid var(--color-border); flex-wrap: wrap;">
+        <button class="tab-btn active" data-tab="agregar" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Agregar Producto</button>
+        <button class="tab-btn" data-tab="lista" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Listar Productos</button>
+        <button class="tab-btn" data-tab="ventas" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Historial Ventas</button>
+        <button class="tab-btn" data-tab="pedidos" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Pedidos</button>
+      </div>
+
+      <!-- Agregar -->
+      <section id="tab-agregar" class="tab-content" style="display: block;">
+        <div class="box">
+          <h2 style="margin-top: 0; margin-bottom: 20px;">Agregar / Editar Producto</h2>
+
+          <form onsubmit="event.preventDefault();" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Nombre del Producto *</label>
+              <input type="text" id="nombreProducto" placeholder="Ej: Ibuprofeno 400mg" required>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Descripción</label>
+              <input type="text" id="descripcionProducto" placeholder="Ej: Analgésico">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Categoría</label>
+              <select id="categoriaProducto">
+                <option value="Medicamentos">Medicamentos</option>
+                <option value="Suplementos">Suplementos</option>
+                <option value="Higiene">Higiene Personal</option>
+                <option value="Vitaminas">Vitaminas</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Disponibilidad</label>
+              <select id="disponibilidadProducto">
+                <option value="Disponible">Disponible</option>
+                <option value="Agotado">Agotado</option>
+                <option value="Próximamente">Próximamente</option>
+              </select>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">URL de Imagen</label>
+              <input type="url" id="imagenProducto" placeholder="Ej: https://i.ibb.co/...">
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <h3 style="margin: 16px 0 12px 0; font-size: 14px; color: #208d9f;">📦 PRESENTACIONES Y PRECIOS</h3>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Precio Caja (COP)</label>
+              <input type="text" id="precioCajaProducto" placeholder="Ej: 120000">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Precio Sobre (COP)</label>
+              <input type="text" id="precioSobreProducto" placeholder="Ej: 12000">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Precio Unidad (COP)</label>
+              <input type="text" id="precioUnidadProducto" placeholder="Ej: 600">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Sobres x Caja</label>
+              <input type="number" id="sobresXCajaProducto" placeholder="Ej: 10" min="0">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Unidades x Sobre</label>
+              <input type="number" id="unidadesXSobreProducto" placeholder="Ej: 20" min="0">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Stock en Cajas</label>
+              <input type="number" id="stockCajasProducto" placeholder="Ej: 10" value="0">
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+  <h3 style="margin: 16px 0 12px 0; font-size: 14px; color: #208d9f;">🔥 OFERTA (PROMO)</h3>
+</div>
+
+<div style="grid-column: 1 / -1; display:flex; gap:10px; align-items:center;">
+  <label style="display:flex; gap:8px; align-items:center; font-weight:600; cursor:pointer;">
+    <input type="checkbox" id="ofertaActivaProducto">
+    Activar oferta para este producto
+  </label>
+</div>
+
+<div style="grid-column: 1 / -1;">
+  <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Texto de oferta (opcional)</label>
+  <input type="text" id="ofertaTextoProducto" placeholder="Ej: Promo cooperativa / 2x1 / Descuento especial">
+</div>
+
+<div>
+  <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Precio OFERTA Caja (COP)</label>
+  <input type="text" id="ofertaPrecioCajaProducto" placeholder="Ej: 115000">
+</div>
+
+<div>
+  <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Precio OFERTA Sobre (COP)</label>
+  <input type="text" id="ofertaPrecioSobreProducto" placeholder="Ej: 10500">
+</div>
+
+
+
+
+            <div style="grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 12px;">
+              <button type="button" id="btnAgregar" class="btn primary" style="flex: 1;">Guardar Producto</button>
+              <button type="button" id="btnCancelarEdicion" class="btn secondary" style="flex: 1; display: none;">Cancelar Edición</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Lista -->
+      <section id="tab-lista" class="tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
+          <h2 style="margin: 0;">Productos Guardados</h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="searchListaProductos" placeholder="Buscar producto..." style="max-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
+            <button id="btnDescargarExcel" class="btn" style="background: #10b981; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" type="button">Descargar Excel</button>
+            <button id="btnLimpiarLocal" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">Eliminar Todos</button>
+          </div>
+        </div>
+        <!-- Banner: filtro activo (stock bajo) -->
+        <div id="lowStockBanner" class="box" style="display:none; padding:12px; margin:10px 0;">
+          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div id="lowStockBannerText" style="font-weight:900;"></div>
+            <button id="btnClearLowStockFilter" class="btn ghost" type="button">Quitar filtro</button>
+          </div>
+        </div>
+
+        <div id="listaProductos" style="display: grid; gap: 12px;"></div>
+      </section>
+
+      <!-- Ventas -->
+      <section id="tab-ventas" class="tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
+          <h2 style="margin: 0;">Historial de Ventas</h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="btnExportVentas" class="btn" style="background: #10b981; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" type="button">Exportar CSV</button>
+            <button id="btnLimpiarVentas" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">Limpiar Historial</button>
+            <button id="btnClearVentas" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">🧹 Limpiar ventas (pruebas)</button>
+          </div>
+        </div>
+        <div id="listaVentas" style="display: grid; gap: 12px;"></div>
+      </section>
+
+      <!-- Pedidos -->
+      <section id="tab-pedidos" class="tab-content" style="display: none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <h2 style="margin:0;">Pedidos</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="ordersFilter" style="max-width: 220px; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
+              <option value="all">Todos</option>
+              <option value="pendiente">Pendientes</option>
+              <option value="aceptado">Aceptados</option>
+              <option value="rechazado">Rechazados</option>
+              <option value="cancelado">Cancelados</option>
+            </select>
+            <button id="btnExportOrders" class="btn" style="background:#10b981;color:white;padding:10px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;" type="button">
+              Exportar pedidos CSV
+            </button>
+            <button id="btnRefreshOrders" class="btn" style="background:#3b82f6;color:white;padding:10px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;" type="button">
+              Actualizar
+            </button>
+            <button id="btnClearOrders" class="btn danger" style="padding:10px 16px;border-radius:6px;" type="button">
+              🧹 Limpiar pedidos (pruebas)
+            </button>
+          </div>
+        </div>
+        <div id="ordersList" style="display:grid;gap:12px;"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/core.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
