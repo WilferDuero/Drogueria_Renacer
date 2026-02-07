@@ -802,6 +802,7 @@ body.modal-open { overflow: hidden; }
   .brand-logo{ width: 88px; height: 88px; }
   .header-center{ order: 3; width: 100%; padding-top: 6px; }
   .header-right{ order: 2; }
+  .site-footer{ padding-bottom: 80px; }
 }
 
 /* ----------------------------
