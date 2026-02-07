@@ -4,6 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Droguería Renacer — Sistema Web</title>
+  <meta name="description" content="Droguería Renacer en Facatativá: medicamentos, vitaminas y cuidado personal. Domicilio local, asesoría farmacéutica y ofertas permanentes." />
+  <meta name="author" content="Droguería Renacer" />
+  <meta property="og:title" content="Droguería Renacer — Medicamentos y cuidado personal" />
+  <meta property="og:description" content="Domicilio local en Facatativá. Medicamentos originales, asesoría farmacéutica y ofertas permanentes." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://drogueria-renacer.vercel.app/" />
+  <meta property="og:image" content="https://i.ibb.co/bRFJK7Hn/logo-drogueria.jpg" />
+  <meta property="og:site_name" content="Droguería Renacer" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#0b63d0" />
+  <link rel="canonical" href="https://drogueria-renacer.vercel.app/" />
+  <link rel="preconnect" href="https://i.ibb.co" />
+  <link rel="preconnect" href="https://r2cdn.perplexity.ai" crossorigin />
   <link rel="stylesheet" href="style.css?v=20260207" />
 </head>
 
@@ -20,8 +33,8 @@
 
     <div class="header-center" style="max-width:700px">
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="searchInput" type="search" placeholder="Buscar medicamentos, vitaminas..." />
-        <select id="categorySelect" style="width:160px;padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)">
+        <input id="searchInput" type="search" placeholder="Buscar medicamentos, vitaminas..." aria-label="Buscar productos" />
+        <select id="categorySelect" style="width:160px;padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)" aria-label="Filtrar por categoría">
           <option value="all">Todas las categorías</option>
         </select>
       </div>
@@ -46,15 +59,15 @@
     <section class="hero">
       <div class="hero-inner container">
         <div class="hero-copy">
-          <div class="hero-eyebrow">Drogueria local en Facatativa</div>
+          <div class="hero-eyebrow">Droguería local en Facatativá</div>
           <h2>Medicamentos, vitaminas y cuidado personal</h2>
-          <p>Entrega a domicilio en Facatativa · Atencion farmaceutica · Ofertas permanentes</p>
+          <p>Entrega a domicilio en Facatativá · Atención farmacéutica · Ofertas permanentes</p>
           <div class="hero-actions">
             <a class="btn primary" target="_blank" href="https://wa.me/573133585508">Pedir por WhatsApp</a>
             <a class="btn ghost" href="#productsSection">Ver productos</a>
           </div>
           <div class="hero-badges">
-            <span class="pill hero-pill">Atencion farmaceutica</span>
+            <span class="pill hero-pill">Atención farmacéutica</span>
             <span class="pill hero-pill">Medicamentos originales</span>
             <span class="pill hero-pill">Entrega local</span>
           </div>
@@ -78,7 +91,7 @@
         <div id="offersCount"></div>
       </div>
 
-      <div id="offersGrid"></div>
+      <div id="offersGrid" aria-live="polite"></div>
 
       <div class="offers-foot">
         <div id="offersPagination" class="offers-pagination" style="display:none;">
@@ -90,7 +103,7 @@
     </section>
 
     <section class="container" id="categoriesSection">
-      <h3 class="section-title">Categorias destacadas</h3>
+      <h3 class="section-title">Categorías destacadas</h3>
       <div class="category-grid">
         <button class="category-card" type="button" data-category="all">Todos</button>
         <button class="category-card" type="button" data-category="Medicamentos">Medicamentos</button>
@@ -103,7 +116,7 @@
 
     <section class="container" id="productsSection">
       <h3 class="section-title">Productos destacados</h3>
-      <div id="productsGrid" class="products-grid"></div>
+      <div id="productsGrid" class="products-grid" aria-live="polite"></div>
     </section>
 
     <!-- ✅ Servicios / Confianza -->
@@ -162,12 +175,12 @@
       <h3 class="section-title">Beneficios reales</h3>
       <div class="benefits-grid">
         <div class="box benefit-item">
-          <div class="benefit-title">Atencion profesional</div>
-          <div class="muted">Acompanamiento en el uso correcto y presentaciones.</div>
+          <div class="benefit-title">Atención profesional</div>
+          <div class="muted">Acompañamiento en el uso correcto y presentaciones.</div>
         </div>
         <div class="box benefit-item">
           <div class="benefit-title">Promos semanales</div>
-          <div class="muted">Ofertas rotativas segun disponibilidad.</div>
+          <div class="muted">Ofertas rotativas según disponibilidad.</div>
         </div>
         <div class="box benefit-item">
           <div class="benefit-title">Control de stock</div>
@@ -275,7 +288,7 @@
             <div class="visit-row muted">Domicilios en Facatativá y alrededores cercanos.</div>
             <div class="visit-badges">
               <span class="pill">Entrega local</span>
-              <span class="pill">Coordinacion por WhatsApp</span>
+              <span class="pill">Coordinación por WhatsApp</span>
             </div>
           </div>
 
@@ -301,7 +314,7 @@
 
         <div class="box visit-map">
           <div class="visit-title">Mapa</div>
-          <div class="visit-row muted">Encuentranos rapidamente</div>
+          <div class="visit-row muted">Encuéntranos rápidamente</div>
           <div class="map-embed">
             <iframe title="Mapa Droguería Renacer" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
               src="https://www.google.com/maps?q=Calle%202A%20Este%20No.%207-04%20Facatativ%C3%A1&output=embed">
@@ -402,7 +415,7 @@
   <a class="wa-float" href="https://wa.me/573133585508" target="_blank" aria-label="WhatsApp Droguería Renacer">
     <span class="wa-ico">💬</span>
     <span class="wa-text">
-      WhatsApp <span class="wa-sub">Atencion y dudas</span>
+      WhatsApp <span class="wa-sub">Atención y dudas</span>
     </span>
   </a>
 
@@ -428,14 +441,14 @@
         <div class="footer-col">
           <div class="footer-title">Servicios</div>
           <div class="footer-text">Domicilio local</div>
-          <div class="footer-text">Asesoria farmaceutica</div>
+          <div class="footer-text">Asesoría farmacéutica</div>
           <div class="footer-text">Pagos faciles</div>
         </div>
       </div>
 
       <div class="footer-bottom">
         <div>© 2026 Droguería Renacer</div>
-        <div class="legal-note">La informacion presentada no sustituye la consulta medica profesional.</div>
+        <div class="legal-note">La información presentada no sustituye la consulta médica profesional.</div>
       </div>
     </div>
   </footer>

@@ -164,6 +164,8 @@ function renderOffers(listForOffers) {
     img.className = "offer-img";
     img.src = p.imagen || "https://via.placeholder.com/200";
     img.alt = p.nombre || "Oferta";
+    img.loading = "lazy";
+    img.decoding = "async";
 
     const ribbon = document.createElement("div");
     ribbon.className = "offer-ribbon";
@@ -343,6 +345,8 @@ function renderProducts(list) {
     const img = document.createElement("img");
     img.src = p.imagen || "https://via.placeholder.com/200";
     img.alt = p.nombre || "Producto";
+    img.loading = "lazy";
+    img.decoding = "async";
     imgWrap.appendChild(img);
 
     // badge stock bajo
