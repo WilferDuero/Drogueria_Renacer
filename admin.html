@@ -22,7 +22,12 @@
       </div>
     </div>
 
-    <div style="display: flex; gap: 8px;">
+    <div style="display: flex; gap: 10px; align-items:center; flex-wrap:wrap;">
+      <div id="apiStatusAdmin" class="api-status" title="Estado API">
+        <span class="api-dot"></span>
+        <span class="api-text">API: --</span>
+        <span id="apiLastSyncAdmin" class="api-last-sync">Última sync: --</span>
+      </div>
       <button id="btnSyncAdmin" class="icon-btn small" style="border: 1px solid rgba(255,255,255,0.2);" type="button">
         ↻ Sincronizar
       </button>
@@ -237,10 +242,11 @@
       <section id="tab-lista" class="tab-content" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
           <h2 style="margin: 0;">Productos Guardados</h2>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items:center;">
             <input type="text" id="searchListaProductos" placeholder="Buscar producto..." style="max-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
             <button id="btnDescargarExcel" class="btn" style="background: #10b981; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" type="button">Descargar Excel</button>
             <button id="btnLimpiarLocal" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">Eliminar Todos</button>
+            <div id="backupInfoProducts" class="muted" style="font-size:12px;">Último respaldo: --</div>
           </div>
         </div>
         <!-- Banner: filtro activo (stock bajo) -->
@@ -258,10 +264,11 @@
       <section id="tab-ventas" class="tab-content" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
           <h2 style="margin: 0;">Historial de Ventas</h2>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items:center;">
             <button id="btnExportVentas" class="btn" style="background: #10b981; color: white; padding: 10px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;" type="button">Exportar CSV</button>
             <button id="btnLimpiarVentas" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">Limpiar Historial</button>
             <button id="btnClearVentas" class="btn danger" style="padding: 10px 16px; border-radius: 6px;" type="button">🧹 Limpiar ventas (pruebas)</button>
+            <div id="backupInfoSales" class="muted" style="font-size:12px;">Último respaldo: --</div>
           </div>
         </div>
         <div id="listaVentas" style="display: grid; gap: 12px;"></div>
@@ -271,7 +278,7 @@
       <section id="tab-pedidos" class="tab-content" style="display: none;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
           <h2 style="margin:0;">Pedidos</h2>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <select id="ordersFilter" style="max-width: 220px; padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
               <option value="all">Todos</option>
               <option value="pendiente">Pendientes</option>
@@ -288,6 +295,7 @@
             <button id="btnClearOrders" class="btn danger" style="padding:10px 16px;border-radius:6px;" type="button">
               🧹 Limpiar pedidos (pruebas)
             </button>
+            <div id="backupInfoOrders" class="muted" style="font-size:12px;">Último respaldo: --</div>
           </div>
         </div>
         <div id="ordersList" style="display:grid;gap:12px;"></div>

@@ -10,10 +10,40 @@
   /* ---------------------------
     Seguridad: requiere login
   ---------------------------- */
-  if (localStorage.getItem(ADMIN_FLAG) !== "true") {
+  const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
+  const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
+
+  function isSessionValid() {
+    if (localStorage.getItem(ADMIN_FLAG) !== "true") return false;
+    const ts = Number(localStorage.getItem(SESSION_KEY) || 0);
+    if (!ts) return false;
+    return Date.now() - ts <= SESSION_TTL;
+  }
+
+  function touchSession() {
+    if (localStorage.getItem(ADMIN_FLAG) === "true") {
+      localStorage.setItem(SESSION_KEY, String(Date.now()));
+    }
+  }
+
+  if (!isSessionValid()) {
+    localStorage.removeItem(ADMIN_FLAG);
+    localStorage.removeItem(SESSION_KEY);
     window.location.href = "admin_login.html";
     return;
   }
+
+  // mantener sesión viva con actividad
+  ["click", "keydown", "mousemove", "touchstart"].forEach((evt) => {
+    document.addEventListener(evt, touchSession, { passive: true });
+  });
+  setInterval(() => {
+    if (!isSessionValid()) {
+      localStorage.removeItem(ADMIN_FLAG);
+      localStorage.removeItem(SESSION_KEY);
+      window.location.href = "admin_login.html";
+    }
+  }, 60 * 1000);
 
   /* ---------------------------
     DOM refs
@@ -68,6 +98,7 @@
   const btnExportVentas = document.getElementById("btnExportVentas");
   const btnLimpiarVentas = document.getElementById("btnLimpiarVentas");
   const btnClearVentas = document.getElementById("btnClearVentas");
+  const backupInfoSales = document.getElementById("backupInfoSales");
 
   // Pedidos
   const ordersList = document.getElementById("ordersList");
@@ -75,6 +106,18 @@
   const btnRefreshOrders = document.getElementById("btnRefreshOrders");
   const btnClearOrders = document.getElementById("btnClearOrders");
   const btnExportOrders = document.getElementById("btnExportOrders");
+  const backupInfoOrders = document.getElementById("backupInfoOrders");
+
+  // Productos
+  const backupInfoProducts = document.getElementById("backupInfoProducts");
+
+  // API status
+  const apiStatusEl = document.getElementById("apiStatusAdmin");
+  const apiLastSyncEl = document.getElementById("apiLastSyncAdmin");
+  const API_LAST_SYNC_KEY = "api_last_sync_admin_v1";
+  const BACKUP_PRODUCTS_KEY = "backup_products_ts_v1";
+  const BACKUP_SALES_KEY = "backup_sales_ts_v1";
+  const BACKUP_ORDERS_KEY = "backup_orders_ts_v1";
 
   /* ---------------------------
     Estado
@@ -168,6 +211,62 @@
     URL.revokeObjectURL(url);
   }
 
+  function formatTime(ts) {
+    if (!ts) return "--";
+    try {
+      return new Date(ts).toLocaleString("es-CO");
+    } catch {
+      return "--";
+    }
+  }
+
+  function updateApiLastSyncLabel() {
+    if (!apiLastSyncEl) return;
+    const ts = Number(localStorage.getItem(API_LAST_SYNC_KEY) || 0);
+    apiLastSyncEl.textContent = `Última sync: ${formatTime(ts)}`;
+  }
+
+  function updateBackupLabels() {
+    if (backupInfoProducts) {
+      const ts = Number(localStorage.getItem(BACKUP_PRODUCTS_KEY) || 0);
+      backupInfoProducts.textContent = `Último respaldo: ${formatTime(ts)}`;
+    }
+    if (backupInfoSales) {
+      const ts = Number(localStorage.getItem(BACKUP_SALES_KEY) || 0);
+      backupInfoSales.textContent = `Último respaldo: ${formatTime(ts)}`;
+    }
+    if (backupInfoOrders) {
+      const ts = Number(localStorage.getItem(BACKUP_ORDERS_KEY) || 0);
+      backupInfoOrders.textContent = `Último respaldo: ${formatTime(ts)}`;
+    }
+  }
+
+  function setApiStatus(state, text) {
+    if (!apiStatusEl) return;
+    apiStatusEl.classList.remove("is-online", "is-offline", "is-warn");
+    if (state) apiStatusEl.classList.add(state);
+    const label = apiStatusEl.querySelector(".api-text");
+    if (label) label.textContent = text || "API: --";
+  }
+
+  async function checkApiHealth() {
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (!enabled) {
+      setApiStatus("is-warn", "API: OFF");
+      return;
+    }
+    if (typeof apiFetch !== "function") {
+      setApiStatus("is-warn", "API: N/A");
+      return;
+    }
+    try {
+      await apiFetch("/health");
+      setApiStatus("is-online", "API: OK");
+    } catch {
+      setApiStatus("is-offline", "API: ERROR");
+    }
+  }
+
   function configureApiFromPrompt() {
     const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
     const base = prompt("URL del backend (API_BASE):", current);
@@ -185,6 +284,11 @@
   async function handleAdminSync() {
     showToast("Sincronizando...");
     const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
+    if (pSynced || oSynced) {
+      localStorage.setItem(API_LAST_SYNC_KEY, String(Date.now()));
+      updateApiLastSyncLabel();
+      checkApiHealth();
+    }
     showToast(pSynced || oSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
   }
 
@@ -197,6 +301,9 @@
         savedProducts = loadSavedProductsArray();
         if (tabLista && tabLista.style.display !== "none") renderListProducts();
         updateStats();
+        localStorage.setItem(API_LAST_SYNC_KEY, String(Date.now()));
+        updateApiLastSyncLabel();
+        checkApiHealth();
         return true;
       }
     } catch (e) {
@@ -212,6 +319,9 @@
       if (synced) {
         if (tabPedidos && tabPedidos.style.display !== "none") renderOrders();
         updateStats();
+        localStorage.setItem(API_LAST_SYNC_KEY, String(Date.now()));
+        updateApiLastSyncLabel();
+        checkApiHealth();
         return true;
       }
     } catch (e) {
@@ -264,6 +374,7 @@
   ========================================================== */
   logoutBtn?.addEventListener("click", () => {
     localStorage.removeItem(ADMIN_FLAG);
+    localStorage.removeItem(SESSION_KEY);
     window.location.href = "admin_login.html";
   });
 
@@ -283,6 +394,11 @@
     const precioCaja = Math.max(0, parsePriceInput(precioCajaProducto.value));
     const precioSobre = Math.max(0, parsePriceInput(precioSobreProducto.value));
     const precioUnidad = Math.max(0, parsePriceInput(precioUnidadProducto.value));
+
+    if (precioCaja === 0 && precioSobre === 0 && precioUnidad === 0) {
+      const ok = confirm("Todos los precios están en 0. ¿Guardar igual?");
+      if (!ok) return null;
+    }
 
     const sobresXCaja = Math.max(0, parseInt(sobresXCajaProducto.value || "0", 10) || 0);
     const unidadesXSobre = Math.max(0, parseInt(unidadesXSobreProducto.value || "0", 10) || 0);
@@ -584,6 +700,8 @@
 
     downloadTextFile("productos_renacer.csv", toCSV(rows, ";"));
     showToast("📥 Exportado: productos_renacer.csv");
+    localStorage.setItem(BACKUP_PRODUCTS_KEY, String(Date.now()));
+    updateBackupLabels();
   });
 
   statAlertasCard?.addEventListener("click", () => {
@@ -730,6 +848,8 @@
     ];
     downloadTextFile("ventas_renacer.csv", toCSV(rows, ";"));
     showToast("📥 Exportado: ventas_renacer.csv");
+    localStorage.setItem(BACKUP_SALES_KEY, String(Date.now()));
+    updateBackupLabels();
   });
 
   btnExportOrders?.addEventListener("click", () => {
@@ -767,6 +887,8 @@
 
     downloadTextFile("pedidos_renacer.csv", toCSV(rows, ";"));
     showToast("📥 Exportado: pedidos_renacer.csv");
+    localStorage.setItem(BACKUP_ORDERS_KEY, String(Date.now()));
+    updateBackupLabels();
   });
 
   btnLimpiarVentas?.addEventListener("click", () => {
@@ -835,6 +957,7 @@
                 </div>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                ${o.synced === false ? `<span class="pill" style="border-color:#f59e0b;">⚠️ Sin sync</span>` : ""}
                 ${orderBadge(o.estado, !!o.esParcial)}
                 <div style="font-weight:900;">${formatCOP(o.total || 0)}</div>
               </div>
@@ -1222,6 +1345,9 @@
 
   trySyncProductsFromApi();
   trySyncOrdersFromApi();
+  updateApiLastSyncLabel();
+  checkApiHealth();
+  updateBackupLabels();
 })();
 
 // Tip semanal: exportar para respaldo (solo 1 vez por semana)

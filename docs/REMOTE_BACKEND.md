@@ -11,7 +11,7 @@ Estos pasos dejan el backend accesible desde cualquier lugar.
    - Start Command: `npm start`
 5. Render te dara una URL publica, por ejemplo:
    - `https://tu-api.onrender.com`
-6. En la tienda o admin, usa el boton **⚙ API** y pega esa URL.
+6. En el **admin**, usa el boton **⚙ API** y pega esa URL.
 7. Activa la API cuando te lo pregunte.
 
 Notas:

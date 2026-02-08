@@ -10,6 +10,8 @@
   const demoBox = document.getElementById("demoCredentials");
   const togglePass = document.getElementById("togglePass");
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
+  const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
+  const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
 
   if (demoBox) demoBox.style.display = DEMO_MODE ? "block" : "none";
 
@@ -30,12 +32,14 @@
 
     if (u === ADMIN_USER && p === ADMIN_PASS) {
       localStorage.setItem(ADMIN_FLAG, "true");
+      localStorage.setItem(SESSION_KEY, String(Date.now()));
       showToast("✅ Acceso concedido");
       window.location.href = "admin.html";
       return;
     }
 
     localStorage.removeItem(ADMIN_FLAG);
+    localStorage.removeItem(SESSION_KEY);
     setError(true);
     showToast("❌ Credenciales incorrectas");
   }
@@ -57,8 +61,15 @@
     });
   }
 
-  // Si ya está logueado, redirige
-  if (localStorage.getItem(ADMIN_FLAG) === "true") {
+  // Si ya está logueado y la sesión sigue viva, redirige
+  (function checkSession() {
+    if (localStorage.getItem(ADMIN_FLAG) !== "true") return;
+    const ts = Number(localStorage.getItem(SESSION_KEY) || 0);
+    if (!ts || Date.now() - ts > SESSION_TTL) {
+      localStorage.removeItem(ADMIN_FLAG);
+      localStorage.removeItem(SESSION_KEY);
+      return;
+    }
     window.location.href = "admin.html";
-  }
+  })();
 })();

@@ -6,6 +6,8 @@
 const LS_KEY = "productos_renacer_v1";
 const CART_KEY = "cart_renacer";
 const ADMIN_FLAG = "admin_logged";
+const ADMIN_SESSION_TS_KEY = "admin_session_ts_v1";
+const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
 const API_BASE = localStorage.getItem("API_BASE") || "http://localhost:3001";
@@ -238,6 +240,7 @@ function normalizeApiOrder(o) {
     total: Number(o?.total) || 0,
     estado: o?.estado || "pendiente",
     fechaISO: o?.createdAt || nowISO(),
+    synced: true,
     motivoRechazo: "",
     itemsAceptados: [],
     itemsRechazados: [],
@@ -338,6 +341,7 @@ async function syncOrdersFromApi(options = {}) {
           fechaISO: localO.fechaISO || apiO.fechaISO,
           cliente: localO.cliente?.nombre ? localO.cliente : apiO.cliente,
           items: Array.isArray(localO.items) && localO.items.length ? localO.items : apiO.items,
+          synced: true,
         };
       });
 
@@ -750,6 +754,7 @@ function createPendingOrderFromCart(cliente) {
     total,
     fechaISO: nowISO(),
     estado: "pendiente",
+    synced: false,
     motivoRechazo: "",
     itemsAceptados: [],
     itemsRechazados: [],
@@ -1342,6 +1347,8 @@ window.sendReceiptToWhatsApp = sendReceiptToWhatsApp;
 window.LS_KEY = LS_KEY;
 window.CART_KEY = CART_KEY;
 window.ADMIN_FLAG = ADMIN_FLAG;
+window.ADMIN_SESSION_TS_KEY = ADMIN_SESSION_TS_KEY;
+window.ADMIN_SESSION_TTL_MS = ADMIN_SESSION_TTL_MS;
 window.WHATS_NUMBER = WHATS_NUMBER;
 window.DEMO_MODE = DEMO_MODE;
 

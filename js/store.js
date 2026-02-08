@@ -52,6 +52,8 @@ function getAllProducts() {
   Sync con backend (opcional)
 ============================ */
 async function trySyncProductsFromApi() {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) return false;
   if (typeof syncProductsFromApi !== "function") return false;
   try {
     const synced = await syncProductsFromApi();
@@ -66,6 +68,8 @@ async function trySyncProductsFromApi() {
 }
 
 async function trySyncOrdersFromApi() {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) return false;
   if (typeof syncOrdersFromApi !== "function") return false;
   try {
     const synced = await syncOrdersFromApi();
@@ -92,6 +96,11 @@ function configureApiFromPrompt() {
 
 async function handleStoreSync() {
   if (!btnSyncStore) return;
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) {
+    showToast("API desactivada");
+    return;
+  }
   showToast("Sincronizando...");
   const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
   if (pSynced) {
@@ -628,6 +637,15 @@ function removeFromCart(idx) {
   updateCartCount();
 }
 
+function markOrderSyncStatus(orderId, synced) {
+  if (!orderId) return;
+  const orders = loadOrders();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx < 0) return;
+  orders[idx].synced = !!synced;
+  saveOrders(orders);
+}
+
 /* ==========================================================
   Enviar pedido WhatsApp (cliente)
 ========================================================== */
@@ -657,7 +675,12 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
 
   // ✅ intenta enviar al backend (no bloquea)
   if (typeof apiCreateOrder === "function") {
-    apiCreateOrder(order).catch((e) => console.warn("apiCreateOrder error:", e));
+    apiCreateOrder(order)
+      .then(() => markOrderSyncStatus(order.id, true))
+      .catch((e) => {
+        console.warn("apiCreateOrder error:", e);
+        markOrderSyncStatus(order.id, false);
+      });
   }
 
   sendOrderToWhatsApp(order);
@@ -798,6 +821,8 @@ function buildClientOrderCard(order) {
       ? order.itemsAceptados
       : order.items || [];
 
+  const syncBadge = order.synced === false ? `<span class="pill" style="border-color:#f59e0b;">⚠️ Sin sincronizar</span>` : "";
+
   return `
     <div class="box" style="padding:14px;">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -807,8 +832,11 @@ function buildClientOrderCard(order) {
             order.fechaISO ? new Date(order.fechaISO).toLocaleString("es-CO") : ""
           }</div>
         </div>
-        <div style="padding:6px 10px;border-radius:999px;background:${estadoColor};color:white;font-weight:800;font-size:12px;">
-          ${escapeHTML(estado.toUpperCase())}${parcialTag}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${syncBadge}
+          <div style="padding:6px 10px;border-radius:999px;background:${estadoColor};color:white;font-weight:800;font-size:12px;">
+            ${escapeHTML(estado.toUpperCase())}${parcialTag}
+          </div>
         </div>
       </div>
 
