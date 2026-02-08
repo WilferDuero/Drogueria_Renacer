@@ -1,4 +1,4 @@
-const CACHE_NAME = "admin-pwa-v1";
+const CACHE_NAME = "admin-pwa-v2";
 const ASSETS = [
   "/admin_login.html",
   "/admin.html",
@@ -34,15 +34,30 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  const isAdminHtml =
+    url.pathname === "/admin.html" || url.pathname === "/admin_login.html";
+
   const isAdminAsset =
-    url.pathname === "/admin.html" ||
-    url.pathname === "/admin_login.html" ||
+    isAdminHtml ||
     url.pathname === "/style.css" ||
     url.pathname === "/manifest-admin.json" ||
     url.pathname.startsWith("/js/") ||
     url.pathname.startsWith("/assets/payments/");
 
   if (!isAdminAsset) return;
+
+  if (isAdminHtml) {
+    event.respondWith(
+      fetch(event.request)
+        .then((resp) => {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return resp;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
