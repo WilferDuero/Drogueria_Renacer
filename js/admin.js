@@ -424,6 +424,9 @@
             <div class="muted" style="font-size:12px;">Rol: <b>${escapeHTML(u.role)}</b></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn ghost" data-user-name="${u.id}" data-user-username="${escapeHTML(
+              u.username
+            )}" type="button">Cambiar usuario</button>
             <button class="btn ghost" data-user-role="${u.id}" type="button">Cambiar rol</button>
             <button class="btn ghost" data-user-pass="${u.id}" type="button">Reset clave</button>
           </div>
@@ -431,6 +434,30 @@
       `
       )
       .join("");
+
+    usersList.querySelectorAll("[data-user-name]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const id = b.getAttribute("data-user-name");
+        const currentName = b.getAttribute("data-user-username") || "";
+        const username = prompt("Nuevo usuario:", currentName);
+        if (!username) return;
+        try {
+          await apiFetch(`/users/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            body: JSON.stringify({ username }),
+          });
+          showToast("✅ Usuario actualizado");
+          if (currentUser?.id && String(currentUser.id) === String(id)) {
+            const updated = { ...currentUser, username };
+            localStorage.setItem(USER_KEY, JSON.stringify(updated));
+            setCurrentUser(updated);
+          }
+          loadUsers();
+        } catch (e) {
+          alert("No se pudo actualizar el usuario. ¿Ya existe?");
+        }
+      });
+    });
 
     usersList.querySelectorAll("[data-user-role]").forEach((b) => {
       b.addEventListener("click", async () => {

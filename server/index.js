@@ -136,8 +136,15 @@ app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID inválido" });
 
-  const { password, role } = req.body || {};
+  const { password, role, username } = req.body || {};
   const db = await dbPromise;
+
+  if (username && String(username).trim()) {
+    const u = String(username).trim();
+    const exists = await db.get("SELECT id FROM users WHERE username = ? AND id <> ?", [u, id]);
+    if (exists) return res.status(409).json({ error: "Usuario ya existe" });
+    await db.run("UPDATE users SET username = ? WHERE id = ?", [u, id]);
+  }
 
   if (password && String(password).trim()) {
     const hash = await bcrypt.hash(String(password).trim(), 10);
