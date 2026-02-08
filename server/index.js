@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -9,6 +11,12 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change";
 const TOKEN_TTL = process.env.JWT_TTL || "8h";
 
+if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-secret-change") {
+  console.error("JWT_SECRET no configurado. Configuralo en variables de entorno.");
+  process.exit(1);
+}
+
+app.set("trust proxy", 1);
 app.use(
   cors({
     origin: true,
@@ -45,6 +53,46 @@ const signToken = (user) =>
     expiresIn: TOKEN_TTL,
   });
 
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginAttempts = new Map();
+
+function getClientIp(req) {
+  const xf = req.headers["x-forwarded-for"];
+  if (typeof xf === "string" && xf.length) return xf.split(",")[0].trim();
+  return req.ip || req.connection?.remoteAddress || "unknown";
+}
+
+function isLoginBlocked(ip) {
+  const entry = loginAttempts.get(ip);
+  if (!entry) return false;
+  const age = Date.now() - entry.firstAt;
+  if (age > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(ip);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordLoginFailure(ip) {
+  const entry = loginAttempts.get(ip);
+  if (!entry) {
+    loginAttempts.set(ip, { count: 1, firstAt: Date.now() });
+    return;
+  }
+  const age = Date.now() - entry.firstAt;
+  if (age > LOGIN_WINDOW_MS) {
+    loginAttempts.set(ip, { count: 1, firstAt: Date.now() });
+    return;
+  }
+  entry.count += 1;
+  loginAttempts.set(ip, entry);
+}
+
+function clearLoginAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -76,18 +124,33 @@ app.get("/", (_req, res) => {
    Auth
 ============================ */
 app.post("/auth/login", async (req, res) => {
+  const ip = getClientIp(req);
+  if (isLoginBlocked(ip)) {
+    return res.status(429).json({ error: "Demasiados intentos. Intenta más tarde." });
+  }
+
   const { username = "", password = "" } = req.body || {};
   const u = String(username || "").trim();
   const p = String(password || "").trim();
-  if (!u || !p) return res.status(400).json({ error: "Usuario y contraseña requeridos" });
+  if (!u || !p) {
+    recordLoginFailure(ip);
+    return res.status(400).json({ error: "Usuario y contraseña requeridos" });
+  }
 
   const db = await dbPromise;
   const user = await db.get("SELECT * FROM users WHERE username = ?", [u]);
-  if (!user) return res.status(401).json({ error: "Credenciales inválidas" });
+  if (!user) {
+    recordLoginFailure(ip);
+    return res.status(401).json({ error: "Credenciales inválidas" });
+  }
 
   const ok = await bcrypt.compare(p, user.passwordHash || "");
-  if (!ok) return res.status(401).json({ error: "Credenciales inválidas" });
+  if (!ok) {
+    recordLoginFailure(ip);
+    return res.status(401).json({ error: "Credenciales inválidas" });
+  }
 
+  clearLoginAttempts(ip);
   const token = signToken(user);
   res.json({
     token,
