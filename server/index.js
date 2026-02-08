@@ -21,8 +21,22 @@ const toInt = (v, fallback = 0) => {
 const toBoolInt = (v) =>
   v === true || v === "true" || v === 1 || v === "1" ? 1 : 0;
 
+const safeJson = (val, fallback = []) => {
+  if (Array.isArray(val)) return val;
+  try {
+    const parsed = JSON.parse(val || "[]");
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
+});
+
+app.get("/", (_req, res) => {
+  res.type("text").send("API Droguería Renacer OK");
 });
 
 /* ============================
@@ -34,6 +48,7 @@ app.get("/products", async (req, res) => {
   res.json(
     rows.map((r) => ({
       ...r,
+      id: r.externalId || r.id,
       ofertaActiva: !!r.ofertaActiva,
     }))
   );
@@ -42,17 +57,19 @@ app.get("/products", async (req, res) => {
 app.post("/products", async (req, res) => {
   const p = req.body || {};
   if (!p.nombre) return res.status(400).json({ error: "Nombre requerido" });
+  const externalId = p.externalId || p.id || null;
 
   const db = await dbPromise;
   const result = await db.run(
     `
     INSERT INTO products
-    (nombre, descripcion, categoria, disponibilidad, imagen,
+    (externalId, nombre, descripcion, categoria, disponibilidad, imagen,
      precioCaja, precioSobre, precioUnidad, sobresXCaja, unidadesXSobre, stockCajas,
      ofertaActiva, ofertaTexto, ofertaPrecioCaja, ofertaPrecioSobre, updatedAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, CURRENT_TIMESTAMP)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?, CURRENT_TIMESTAMP)
     `,
     [
+      externalId,
       p.nombre,
       p.descripcion || "",
       p.categoria || "",
@@ -112,12 +129,59 @@ app.put("/products/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.put("/products/external/:externalId", async (req, res) => {
+  const externalId = String(req.params.externalId || "").trim();
+  if (!externalId) return res.status(400).json({ error: "externalId inválido" });
+
+  const p = req.body || {};
+  const db = await dbPromise;
+
+  await db.run(
+    `
+    UPDATE products SET
+      nombre = ?, descripcion = ?, categoria = ?, disponibilidad = ?, imagen = ?,
+      precioCaja = ?, precioSobre = ?, precioUnidad = ?, sobresXCaja = ?, unidadesXSobre = ?, stockCajas = ?,
+      ofertaActiva = ?, ofertaTexto = ?, ofertaPrecioCaja = ?, ofertaPrecioSobre = ?, updatedAt = CURRENT_TIMESTAMP
+    WHERE externalId = ?
+    `,
+    [
+      p.nombre || "",
+      p.descripcion || "",
+      p.categoria || "",
+      p.disponibilidad || "Disponible",
+      p.imagen || "",
+      toNumber(p.precioCaja),
+      toNumber(p.precioSobre),
+      toNumber(p.precioUnidad),
+      toInt(p.sobresXCaja),
+      toInt(p.unidadesXSobre),
+      toInt(p.stockCajas),
+      toBoolInt(p.ofertaActiva),
+      p.ofertaTexto || "",
+      toNumber(p.ofertaPrecioCaja),
+      toNumber(p.ofertaPrecioSobre),
+      externalId,
+    ]
+  );
+
+  res.json({ ok: true });
+});
+
 app.delete("/products/:id", async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID inválido" });
 
   const db = await dbPromise;
   await db.run("DELETE FROM products WHERE id = ?", [id]);
+  res.json({ ok: true });
+});
+
+app.delete("/products/external/:externalId", async (req, res) => {
+  const externalId = String(req.params.externalId || "").trim();
+  if (!externalId) return res.status(400).json({ error: "externalId inválido" });
+
+  const db = await dbPromise;
+  await db.run("DELETE FROM products WHERE externalId = ?", [externalId]);
   res.json({ ok: true });
 });
 
@@ -130,22 +194,29 @@ app.get("/orders", async (req, res) => {
   const rows = status
     ? await db.all("SELECT * FROM orders WHERE estado = ? ORDER BY id DESC", [status])
     : await db.all("SELECT * FROM orders ORDER BY id DESC");
-  res.json(rows);
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      items: safeJson(r.items, []),
+    }))
+  );
 });
 
 app.post("/orders", async (req, res) => {
   const o = req.body || {};
   const items = Array.isArray(o.items) ? o.items : [];
   const total = toNumber(o.total);
+  const externalId = o.externalId || o.id || null;
 
   const db = await dbPromise;
   const result = await db.run(
     `
     INSERT INTO orders
-    (clienteNombre, clienteTelefono, clienteDireccion, items, total, estado)
-    VALUES (?,?,?,?,?,?)
+    (externalId, clienteNombre, clienteTelefono, clienteDireccion, items, total, estado)
+    VALUES (?,?,?,?,?,?,?)
     `,
     [
+      externalId,
       o.clienteNombre || "",
       o.clienteTelefono || "",
       o.clienteDireccion || "",
@@ -167,6 +238,18 @@ app.put("/orders/:id/status", async (req, res) => {
 
   const db = await dbPromise;
   await db.run("UPDATE orders SET estado = ? WHERE id = ?", [estado, id]);
+  res.json({ ok: true });
+});
+
+app.put("/orders/external/:externalId/status", async (req, res) => {
+  const externalId = String(req.params.externalId || "").trim();
+  if (!externalId) return res.status(400).json({ error: "externalId inválido" });
+
+  const estado = (req.body?.estado || "").toLowerCase();
+  if (!estado) return res.status(400).json({ error: "Estado requerido" });
+
+  const db = await dbPromise;
+  await db.run("UPDATE orders SET estado = ? WHERE externalId = ?", [estado, externalId]);
   res.json({ ok: true });
 });
 

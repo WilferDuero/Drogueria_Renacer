@@ -8,6 +8,8 @@ const CART_KEY = "cart_renacer";
 const ADMIN_FLAG = "admin_logged";
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
+const API_BASE = localStorage.getItem("API_BASE") || "http://localhost:3001";
+const API_ENABLED = localStorage.getItem("API_ENABLED") !== "false";
 
 /* Umbral de alerta de stock (basado en cajas disponibles) */
 const STOCK_BAJO_LIMIT = 2;
@@ -197,6 +199,181 @@ function openWindowSafe(url = "", target = "_blank") {
     return null;
   }
   return w;
+}
+
+/* ==========================================================
+  API (backend)
+========================================================== */
+async function apiFetch(path, options = {}) {
+  if (!API_ENABLED) throw new Error("API deshabilitada");
+  const url = API_BASE.replace(/\/$/, "") + path;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  try {
+    const res = await fetch(url, { ...options, headers, signal: controller.signal });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeApiOrder(o) {
+  const items = Array.isArray(o?.items) ? o.items : [];
+  return {
+    id: o?.externalId || String(o?.id || ""),
+    cliente: {
+      nombre: o?.clienteNombre || "",
+      telefono: o?.clienteTelefono || "",
+      direccion: o?.clienteDireccion || "",
+    },
+    items,
+    total: Number(o?.total) || 0,
+    estado: o?.estado || "pendiente",
+    fechaISO: o?.createdAt || nowISO(),
+    motivoRechazo: "",
+    itemsAceptados: [],
+    itemsRechazados: [],
+    totalAceptado: 0,
+    esParcial: false,
+    fechaCancelacionISO: "",
+    fechaAceptacionISO: "",
+    fechaRechazoISO: "",
+    fechaConfirmacionClienteISO: "",
+  };
+}
+
+async function syncProductsFromApi(options = {}) {
+  const allowEmpty = !!options.allowEmpty;
+  try {
+    const list = await apiFetch("/products");
+    if (Array.isArray(list)) {
+      const local = loadSavedProductsArray();
+      if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+
+      const localMap = new Map(local.map((p) => [p.id, p]));
+      const apiIds = new Set();
+
+      const merged = list.map((apiP) => {
+        const localP = localMap.get(apiP.id);
+        apiIds.add(apiP.id);
+        return {
+          ...localP,
+          ...apiP,
+          // preservar historial de precio local (API no lo guarda)
+          prevPrecioCaja: localP?.prevPrecioCaja || 0,
+          prevPrecioSobre: localP?.prevPrecioSobre || 0,
+          priceChangedISO: localP?.priceChangedISO || "",
+        };
+      });
+
+      // conserva productos locales que aún no existen en la API
+      local.forEach((p) => {
+        if (!apiIds.has(p.id)) merged.push(p);
+      });
+
+      saveSavedProductsArray(merged);
+      products = getProductsLocal();
+      return merged;
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function apiUpsertProduct(p, isUpdate) {
+  const payload = { ...p, externalId: p.id };
+  const path = isUpdate
+    ? `/products/external/${encodeURIComponent(p.id)}`
+    : "/products";
+  const method = isUpdate ? "PUT" : "POST";
+  return apiFetch(path, { method, body: JSON.stringify(payload) });
+}
+
+async function apiDeleteProduct(id) {
+  return apiFetch(`/products/external/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+async function apiCreateOrder(order) {
+  const payload = {
+    externalId: order.id,
+    clienteNombre: order?.cliente?.nombre || "",
+    clienteTelefono: order?.cliente?.telefono || "",
+    clienteDireccion: order?.cliente?.direccion || "",
+    items: order.items || [],
+    total: order.total || 0,
+    estado: order.estado || "pendiente",
+  };
+  return apiFetch("/orders", { method: "POST", body: JSON.stringify(payload) });
+}
+
+async function syncOrdersFromApi(options = {}) {
+  const allowEmpty = !!options.allowEmpty;
+  try {
+    const list = await apiFetch("/orders");
+    if (Array.isArray(list)) {
+      const local = loadOrders();
+      if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+
+      const normalized = list.map(normalizeApiOrder);
+      const localMap = new Map(local.map((o) => [o.id, o]));
+      const apiIds = new Set();
+
+      const merged = normalized.map((apiO) => {
+        const localO = localMap.get(apiO.id);
+        apiIds.add(apiO.id);
+        if (!localO) return apiO;
+
+        return {
+          ...localO,
+          // actualiza estado desde API sin perder detalles locales
+          estado: apiO.estado || localO.estado,
+          total: localO.total || apiO.total,
+          fechaISO: localO.fechaISO || apiO.fechaISO,
+          cliente: localO.cliente?.nombre ? localO.cliente : apiO.cliente,
+          items: Array.isArray(localO.items) && localO.items.length ? localO.items : apiO.items,
+        };
+      });
+
+      // conserva pedidos locales que aún no existen en la API
+      local.forEach((o) => {
+        if (!apiIds.has(o.id)) merged.push(o);
+      });
+
+      // ordena por fecha (más nuevo primero)
+      merged.sort((a, b) => String(b.fechaISO || "").localeCompare(String(a.fechaISO || "")));
+
+      saveOrders(merged);
+      return merged;
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function apiUpdateOrderStatus(order) {
+  const externalId = order?.id || "";
+  if (!externalId) return null;
+  return apiFetch(`/orders/external/${encodeURIComponent(externalId)}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ estado: order.estado || "pendiente" }),
+  });
+}
+
+async function apiCreateReview(review) {
+  const payload = {
+    nombre: review?.nombre || "",
+    telefono: review?.telefonoDigits || "",
+    rating: review?.rating || 0,
+    texto: review?.texto || "",
+    verificada: review?.verified ? 1 : 0,
+  };
+  return apiFetch("/reviews", { method: "POST", body: JSON.stringify(payload) });
 }
 
 /* ==========================================================
@@ -1183,6 +1360,18 @@ window.loadCustomer = loadCustomer;
 window.saveCustomer = saveCustomer;
 window.getCustomerInputs = getCustomerInputs;
 window.isRememberEnabled = isRememberEnabled;
+
+// ✅ API helpers (backend)
+window.API_BASE = API_BASE;
+window.API_ENABLED = API_ENABLED;
+window.apiFetch = apiFetch;
+window.syncProductsFromApi = syncProductsFromApi;
+window.apiUpsertProduct = apiUpsertProduct;
+window.apiDeleteProduct = apiDeleteProduct;
+window.apiCreateOrder = apiCreateOrder;
+window.syncOrdersFromApi = syncOrdersFromApi;
+window.apiUpdateOrderStatus = apiUpdateOrderStatus;
+window.apiCreateReview = apiCreateReview;
 
 /* Exponer el cart global si lo necesitas en debugging */
 window.cart = cart;

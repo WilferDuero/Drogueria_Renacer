@@ -13,6 +13,7 @@ const dbPromise = open({
   await db.exec(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      externalId TEXT,
       nombre TEXT NOT NULL,
       descripcion TEXT,
       categoria TEXT,
@@ -34,6 +35,7 @@ const dbPromise = open({
 
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      externalId TEXT,
       clienteNombre TEXT,
       clienteTelefono TEXT,
       clienteDireccion TEXT,
@@ -53,6 +55,14 @@ const dbPromise = open({
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  try {
+    await db.exec("ALTER TABLE products ADD COLUMN externalId TEXT;");
+  } catch (e) {}
+
+  try {
+    await db.exec("ALTER TABLE orders ADD COLUMN externalId TEXT;");
+  } catch (e) {}
 
   return db;
 });

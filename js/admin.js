@@ -19,6 +19,8 @@
     DOM refs
   ---------------------------- */
   const logoutBtn = document.getElementById("logoutBtn");
+  const btnSyncAdmin = document.getElementById("btnSyncAdmin");
+  const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
 
   // Tabs
   const tabBtns = document.querySelectorAll(".tab-btn");
@@ -166,6 +168,58 @@
     URL.revokeObjectURL(url);
   }
 
+  function configureApiFromPrompt() {
+    const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
+    const base = prompt("URL del backend (API_BASE):", current);
+    if (base === null) return;
+    const trimmed = String(base).trim();
+    if (!trimmed) return alert("URL inválida.");
+
+    const enabled = confirm("¿Activar API ahora? (OK = Sí / Cancel = No)");
+    localStorage.setItem("API_BASE", trimmed);
+    localStorage.setItem("API_ENABLED", enabled ? "true" : "false");
+    showToast(enabled ? "✅ API activada" : "⚠️ API desactivada");
+    setTimeout(() => window.location.reload(), 300);
+  }
+
+  async function handleAdminSync() {
+    showToast("Sincronizando...");
+    const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
+    showToast(pSynced || oSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
+  }
+
+  // ✅ Sync con backend (opcional)
+  async function trySyncProductsFromApi() {
+    if (typeof syncProductsFromApi !== "function") return false;
+    try {
+      const synced = await syncProductsFromApi();
+      if (synced) {
+        savedProducts = loadSavedProductsArray();
+        if (tabLista && tabLista.style.display !== "none") renderListProducts();
+        updateStats();
+        return true;
+      }
+    } catch (e) {
+      console.warn("syncProductsFromApi error:", e);
+    }
+    return false;
+  }
+
+  async function trySyncOrdersFromApi() {
+    if (typeof syncOrdersFromApi !== "function") return false;
+    try {
+      const synced = await syncOrdersFromApi();
+      if (synced) {
+        if (tabPedidos && tabPedidos.style.display !== "none") renderOrders();
+        updateStats();
+        return true;
+      }
+    } catch (e) {
+      console.warn("syncOrdersFromApi error:", e);
+    }
+    return false;
+  }
+
   // ✅ Mostrar productos con stock bajo (ADMIN)
   window.showLowStockModal = function () {
     onlyLowStockMode = true;
@@ -191,9 +245,15 @@
     tabBtns.forEach((b) => b.classList.remove("active"));
     document.querySelector(`.tab-btn[data-tab="${name}"]`)?.classList.add("active");
 
-    if (name === "lista") renderListProducts();
+    if (name === "lista") {
+      renderListProducts();
+      trySyncProductsFromApi();
+    }
     if (name === "ventas") renderSales();
-    if (name === "pedidos") renderOrders();
+    if (name === "pedidos") {
+      renderOrders();
+      trySyncOrdersFromApi();
+    }
     updateStats();
   }
 
@@ -206,6 +266,9 @@
     localStorage.removeItem(ADMIN_FLAG);
     window.location.href = "admin_login.html";
   });
+
+  btnSyncAdmin?.addEventListener("click", handleAdminSync);
+  btnApiConfigAdmin?.addEventListener("click", configureApiFromPrompt);
 
   /* ==========================================================
     CRUD PRODUCTOS
@@ -285,6 +348,8 @@
       p.priceChangedISO = "";
     }
 
+    const isUpdate = editingIdx >= 0;
+
     if (editingIdx >= 0) {
       savedProducts[editingIdx] = p;
       showToast("✅ Producto actualizado");
@@ -294,6 +359,12 @@
     }
 
     persistProducts();
+
+    // ✅ enviar al backend (no bloquea)
+    if (typeof apiUpsertProduct === "function") {
+      apiUpsertProduct(p, isUpdate).catch((e) => console.warn("apiUpsertProduct error:", e));
+    }
+
     resetForm();
     renderListProducts();
     showTab("lista");
@@ -428,6 +499,9 @@
         if (!confirm(`¿Eliminar "${p.nombre}"?`)) return;
         savedProducts.splice(idx, 1);
         persistProducts();
+        if (typeof apiDeleteProduct === "function") {
+          apiDeleteProduct(p.id).catch((e) => console.warn("apiDeleteProduct error:", e));
+        }
         renderListProducts();
         showToast("🗑️ Producto eliminado");
       });
@@ -968,6 +1042,10 @@
 
       saveOrders(orders);
 
+      if (typeof apiUpdateOrderStatus === "function") {
+        apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
+      }
+
       // ✅ WhatsApp automático al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
@@ -1040,6 +1118,10 @@
 
       saveOrders(orders);
 
+      if (typeof apiUpdateOrderStatus === "function") {
+        apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
+      }
+
       // ✅ (opcional pro) avisar al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
@@ -1092,6 +1174,10 @@
       order.fechaCancelacionISO = nowISO();
       saveOrders(orders);
 
+      if (typeof apiUpdateOrderStatus === "function") {
+        apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
+      }
+
       // ✅ (opcional pro) avisar al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
@@ -1108,7 +1194,10 @@
   }
 
   ordersFilter?.addEventListener("change", renderOrders);
-  btnRefreshOrders?.addEventListener("click", renderOrders);
+  btnRefreshOrders?.addEventListener("click", async () => {
+    await trySyncOrdersFromApi();
+    renderOrders();
+  });
 
   btnClearOrders?.addEventListener("click", () => {
     if (!confirm("¿Borrar TODOS los pedidos (pruebas)?")) return;
@@ -1130,6 +1219,9 @@
   renderSales();
   renderOrders();
   updateStats();
+
+  trySyncProductsFromApi();
+  trySyncOrdersFromApi();
 })();
 
 // Tip semanal: exportar para respaldo (solo 1 vez por semana)

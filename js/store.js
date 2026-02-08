@@ -14,6 +14,8 @@ const offersPrev = document.getElementById("offersPrev");
 const offersNext = document.getElementById("offersNext");
 const offersPageText = document.getElementById("offersPage");
 const categorySelect = document.getElementById("categorySelect");
+const btnSyncStore = document.getElementById("btnSyncStore");
+const btnApiConfigStore = document.getElementById("btnApiConfigStore");
 
 const OFFERS_PAGE_SIZE = 6;
 let offersPage = 1;
@@ -44,6 +46,63 @@ function getAllProducts() {
   if (!productsCache || (ts && ts !== productsCacheTS)) return refreshProductsCache();
 
   return productsCache;
+}
+
+/* ============================
+  Sync con backend (opcional)
+============================ */
+async function trySyncProductsFromApi() {
+  if (typeof syncProductsFromApi !== "function") return false;
+  try {
+    const synced = await syncProductsFromApi();
+    if (synced) {
+      refreshProductsCache();
+      return true;
+    }
+  } catch (e) {
+    console.warn("syncProductsFromApi error:", e);
+  }
+  return false;
+}
+
+async function trySyncOrdersFromApi() {
+  if (typeof syncOrdersFromApi !== "function") return false;
+  try {
+    const synced = await syncOrdersFromApi();
+    return !!synced;
+  } catch (e) {
+    console.warn("syncOrdersFromApi error:", e);
+  }
+  return false;
+}
+
+function configureApiFromPrompt() {
+  const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
+  const base = prompt("URL del backend (API_BASE):", current);
+  if (base === null) return;
+  const trimmed = String(base).trim();
+  if (!trimmed) return alert("URL inválida.");
+
+  const enabled = confirm("¿Activar API ahora? (OK = Sí / Cancel = No)");
+  localStorage.setItem("API_BASE", trimmed);
+  localStorage.setItem("API_ENABLED", enabled ? "true" : "false");
+  showToast(enabled ? "✅ API activada" : "⚠️ API desactivada");
+  setTimeout(() => window.location.reload(), 300);
+}
+
+async function handleStoreSync() {
+  if (!btnSyncStore) return;
+  showToast("Sincronizando...");
+  const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
+  if (pSynced) {
+    const list = getAllProducts();
+    offersPage = 1;
+    renderOffers(list);
+    renderProducts(list);
+    initCategories(list);
+  }
+  if (oSynced) updateMyOrdersCount();
+  showToast(pSynced || oSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
 }
 
 /* ==========================================================
@@ -596,6 +655,11 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
   const order = createPendingOrderFromCart(cliente);
   if (!order) return;
 
+  // ✅ intenta enviar al backend (no bloquea)
+  if (typeof apiCreateOrder === "function") {
+    apiCreateOrder(order).catch((e) => console.warn("apiCreateOrder error:", e));
+  }
+
   sendOrderToWhatsApp(order);
   showToast(`Pedido ${order.id} enviado (Pendiente)`);
 
@@ -626,6 +690,9 @@ document.getElementById("cartModal")?.addEventListener("click", (e) => {
   if (e.target === modal) closeModal("cartModal");
 });
 
+btnSyncStore?.addEventListener("click", handleStoreSync);
+btnApiConfigStore?.addEventListener("click", configureApiFromPrompt);
+
 /* ==========================================================
   Categorías / filtros
 ========================================================== */
@@ -637,11 +704,18 @@ function applyCategoryFilter(value) {
   renderProducts(filtered);
 }
 
-(function initCategories() {
+function initCategories(list) {
   if (!categorySelect) return;
 
-  const base = getAllProducts();
+  const base = Array.isArray(list) ? list : getAllProducts();
   const cats = [...new Set((base || []).map((p) => (p.categoria || "").trim()).filter(Boolean))];
+  const current = categorySelect.value || "all";
+
+  categorySelect.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value = "all";
+  optAll.textContent = "Todas las categorías";
+  categorySelect.appendChild(optAll);
 
   cats.forEach((cat) => {
     const opt = document.createElement("option");
@@ -650,11 +724,17 @@ function applyCategoryFilter(value) {
     categorySelect.appendChild(opt);
   });
 
-  categorySelect.addEventListener("change", () => {
-    const selected = categorySelect.value;
-    applyCategoryFilter(selected);
-  });
-})();
+  const hasCurrent = Array.from(categorySelect.options).some((o) => o.value === current);
+  categorySelect.value = hasCurrent ? current : "all";
+
+  if (categorySelect.dataset.bound !== "1") {
+    categorySelect.addEventListener("change", () => {
+      const selected = categorySelect.value;
+      applyCategoryFilter(selected);
+    });
+    categorySelect.dataset.bound = "1";
+  }
+}
 
 /* Categorias rapidas */
 document.querySelectorAll("[data-category]").forEach((btn) => {
@@ -810,18 +890,25 @@ function renderMyOrders() {
   const phoneInput = document.getElementById("myOrdersPhoneFilter");
 
   if (btn) {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       updateMyOrdersCount();
       const saved = loadCustomer();
       if (phoneInput && !phoneInput.value) phoneInput.value = saved.telefono || "";
       if (onlyMineChk && saved.telefono) onlyMineChk.checked = true;
       renderMyOrders();
       openModal("myOrdersModal");
+
+      const synced = await trySyncOrdersFromApi();
+      if (synced) {
+        updateMyOrdersCount();
+        renderMyOrders();
+      }
     });
   }
 
   closeBtn?.addEventListener("click", () => closeModal("myOrdersModal"));
-  refreshBtn?.addEventListener("click", () => {
+  refreshBtn?.addEventListener("click", async () => {
+    await trySyncOrdersFromApi();
     updateMyOrdersCount();
     renderMyOrders();
   });
@@ -1007,6 +1094,11 @@ document.getElementById("submitReview")?.addEventListener("click", () => {
   reviews.unshift(review);
   saveReviews(reviews);
 
+  // ✅ enviar al backend si existe (no bloquea)
+  if (typeof apiCreateReview === "function") {
+    apiCreateReview(review).catch((e) => console.warn("apiCreateReview error:", e));
+  }
+
   textEl.value = "";
   document.getElementById("reviewRating").value = "0";
   initStarsPicker();
@@ -1024,17 +1116,29 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
 /* ==========================================================
   Inicialización tienda
 ========================================================== */
-(function initStore() {
+(async function initStore() {
   if (!productsGrid) return;
 
+  const renderAll = (list) => {
+    offersPage = 1;
+    renderOffers(list);
+    renderProducts(list);
+  };
+
   const list = getAllProducts();
-  offersPage = 1;
-  renderOffers(list);
-  renderProducts(list);
+  renderAll(list);
+  initCategories(list);
 
   renderCart();
   updateCartCount();
   updateMyOrdersCount();
+
+  const synced = await trySyncProductsFromApi();
+  if (synced) {
+    const updated = getAllProducts();
+    renderAll(updated);
+    initCategories(updated);
+  }
 })();
 
 /* Reviews init */

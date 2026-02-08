@@ -246,6 +246,11 @@ h4 { font-size: var(--font-size-xl); }
   transition: background var(--duration-fast) var(--ease-standard);
 }
 .icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.icon-btn.small {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
 
 #cartCount {
   background: var(--color-white);
