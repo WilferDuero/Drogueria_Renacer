@@ -485,16 +485,16 @@ textarea { resize: vertical; }
   border: 1px solid var(--color-card-border);
 }
 .password-field{
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-12);
 }
 .password-field input{
-  padding-right: 56px;
+  flex: 1;
+  margin-bottom: 0;
 }
 .password-toggle{
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
   border: 1px solid var(--color-border);
   background: #fff;
   color: var(--color-text);
@@ -509,13 +509,12 @@ textarea { resize: vertical; }
   transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 .password-toggle:hover{
-  transform: translateY(-50%) scale(1.02);
+  transform: scale(1.02);
   box-shadow: var(--shadow-sm);
 }
 .password-toggle .icon-eye--closed{ display:none; }
 .password-toggle.is-open .icon-eye--open{ display:none; }
 .password-toggle.is-open .icon-eye--closed{ display:block; }
-}
 .login-header { text-align: center; margin-bottom: 24px; }
 .login-header h1 { font-size: 32px; color: var(--color-primary); margin-bottom: 8px; }
 .login-header p { color: var(--color-text-secondary); font-size: 14px; }
