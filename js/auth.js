@@ -51,7 +51,7 @@
     togglePass.addEventListener("click", () => {
       const showing = passEl.type === "text";
       passEl.type = showing ? "password" : "text";
-      togglePass.textContent = showing ? "Ver" : "Ocultar";
+      togglePass.classList.toggle("is-open", !showing);
       togglePass.setAttribute("aria-pressed", String(!showing));
       togglePass.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
     });

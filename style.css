@@ -488,21 +488,33 @@ textarea { resize: vertical; }
   position: relative;
 }
 .password-field input{
-  padding-right: 72px;
+  padding-right: 56px;
 }
 .password-toggle{
   position: absolute;
-  right: 10px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: #fff;
   color: var(--color-text);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 800;
+  border-radius: 10px;
+  width: 36px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+.password-toggle:hover{
+  transform: translateY(-50%) scale(1.02);
+  box-shadow: var(--shadow-sm);
+}
+.password-toggle .icon-eye--closed{ display:none; }
+.password-toggle.is-open .icon-eye--open{ display:none; }
+.password-toggle.is-open .icon-eye--closed{ display:block; }
 }
 .login-header { text-align: center; margin-bottom: 24px; }
 .login-header h1 { font-size: 32px; color: var(--color-primary); margin-bottom: 8px; }
