@@ -1,8 +1,12 @@
 const path = require("path");
+const fs = require("fs");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 
-const dbFile = path.join(__dirname, "data", "app.db");
+const dataDir = process.env.SQLITE_DIR || path.join(__dirname, "data");
+fs.mkdirSync(dataDir, { recursive: true });
+
+const dbFile = path.join(dataDir, "app.db");
 
 const dbPromise = open({
   filename: dbFile,
