@@ -12,9 +12,15 @@
   ---------------------------- */
   const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
+  const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
+  const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
+
+  let currentUser = null;
+  let isOwner = false;
 
   function isSessionValid() {
     if (localStorage.getItem(ADMIN_FLAG) !== "true") return false;
+    if (!localStorage.getItem(TOKEN_KEY)) return false;
     const ts = Number(localStorage.getItem(SESSION_KEY) || 0);
     if (!ts) return false;
     return Date.now() - ts <= SESSION_TTL;
@@ -29,6 +35,8 @@
   if (!isSessionValid()) {
     localStorage.removeItem(ADMIN_FLAG);
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     window.location.href = "admin_login.html";
     return;
   }
@@ -41,6 +49,8 @@
     if (!isSessionValid()) {
       localStorage.removeItem(ADMIN_FLAG);
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
       window.location.href = "admin_login.html";
     }
   }, 60 * 1000);
@@ -51,6 +61,7 @@
   const logoutBtn = document.getElementById("logoutBtn");
   const btnSyncAdmin = document.getElementById("btnSyncAdmin");
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
+  const adminUserInfo = document.getElementById("adminUserInfo");
 
   // Tabs
   const tabBtns = document.querySelectorAll(".tab-btn");
@@ -58,6 +69,7 @@
   const tabLista = document.getElementById("tab-lista");
   const tabVentas = document.getElementById("tab-ventas");
   const tabPedidos = document.getElementById("tab-pedidos");
+  const tabUsuarios = document.getElementById("tab-usuarios");
 
   // Form producto
   const nombreProducto = document.getElementById("nombreProducto");
@@ -110,6 +122,13 @@
 
   // Productos
   const backupInfoProducts = document.getElementById("backupInfoProducts");
+
+  // Usuarios (owner)
+  const userUsername = document.getElementById("userUsername");
+  const userPassword = document.getElementById("userPassword");
+  const userRole = document.getElementById("userRole");
+  const btnCreateUser = document.getElementById("btnCreateUser");
+  const usersList = document.getElementById("usersList");
 
   // API status
   const apiStatusEl = document.getElementById("apiStatusAdmin");
@@ -267,6 +286,53 @@
     }
   }
 
+  function setCurrentUser(user) {
+    currentUser = user || null;
+    isOwner = !!user && user.role === "owner";
+    if (adminUserInfo) {
+      const label = user?.username ? `${user.username} (${user.role || "staff"})` : "--";
+      adminUserInfo.querySelector(".api-text").textContent = `Usuario: ${label}`;
+    }
+
+    const SALES_USER_KEY = "sales_user_id_v1";
+    const currentId = user?.id ? String(user.id) : "";
+    const prevId = localStorage.getItem(SALES_USER_KEY) || "";
+    if (currentId && prevId !== currentId) {
+      localStorage.setItem(SALES_USER_KEY, currentId);
+      saveSalesSafe([]);
+    }
+
+    // ocultar tab usuarios si no es owner
+    tabBtns.forEach((b) => {
+      if (b.dataset.tab === "usuarios") b.style.display = isOwner ? "inline-block" : "none";
+    });
+    if (tabUsuarios) tabUsuarios.style.display = isOwner ? "block" : "none";
+    if (!isOwner && document.querySelector('.tab-btn[data-tab="usuarios"]')?.classList.contains("active")) {
+      showTab("agregar");
+    }
+  }
+
+  async function ensureAuthUser() {
+    const cached = localStorage.getItem(USER_KEY);
+    if (cached) {
+      try {
+        setCurrentUser(JSON.parse(cached));
+      } catch {}
+    }
+    try {
+      const me = await apiMe();
+      if (!me || !me.id) throw new Error("No user");
+      localStorage.setItem(USER_KEY, JSON.stringify(me));
+      setCurrentUser(me);
+    } catch (e) {
+      localStorage.removeItem(ADMIN_FLAG);
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      window.location.href = "admin_login.html";
+    }
+  }
+
   function configureApiFromPrompt() {
     const modal = document.getElementById("apiConfigModal");
     const input = document.getElementById("apiBaseInput");
@@ -283,13 +349,17 @@
 
   async function handleAdminSync() {
     showToast("Sincronizando...");
-    const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
-    if (pSynced || oSynced) {
+    const [pSynced, oSynced, sSynced] = await Promise.all([
+      trySyncProductsFromApi(),
+      trySyncOrdersFromApi(),
+      trySyncSalesFromApi(),
+    ]);
+    if (pSynced || oSynced || sSynced) {
       localStorage.setItem(API_LAST_SYNC_KEY, String(Date.now()));
       updateApiLastSyncLabel();
       checkApiHealth();
     }
-    showToast(pSynced || oSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
+    showToast(pSynced || oSynced || sSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
   }
 
   // ✅ Sync con backend (opcional)
@@ -330,6 +400,107 @@
     return false;
   }
 
+  /* ==========================================================
+    Usuarios (solo owner)
+  ========================================================== */
+  function renderUsers(list = []) {
+    if (!usersList) return;
+    if (!isOwner) {
+      usersList.innerHTML = `<div class="muted">Solo el dueño puede ver usuarios.</div>`;
+      return;
+    }
+
+    if (!list.length) {
+      usersList.innerHTML = `<div class="box"><div class="muted">No hay usuarios.</div></div>`;
+      return;
+    }
+
+    usersList.innerHTML = list
+      .map(
+        (u) => `
+        <div class="box" style="padding:12px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:800;">${escapeHTML(u.username)}</div>
+            <div class="muted" style="font-size:12px;">Rol: <b>${escapeHTML(u.role)}</b></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn ghost" data-user-role="${u.id}" type="button">Cambiar rol</button>
+            <button class="btn ghost" data-user-pass="${u.id}" type="button">Reset clave</button>
+          </div>
+        </div>
+      `
+      )
+      .join("");
+
+    usersList.querySelectorAll("[data-user-role]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const id = b.getAttribute("data-user-role");
+        const role = prompt("Nuevo rol (owner / staff):", "staff");
+        if (!role) return;
+        try {
+          await apiFetch(`/users/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            body: JSON.stringify({ role }),
+          });
+          showToast("✅ Rol actualizado");
+          loadUsers();
+        } catch (e) {
+          alert("No se pudo actualizar el rol.");
+        }
+      });
+    });
+
+    usersList.querySelectorAll("[data-user-pass]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const id = b.getAttribute("data-user-pass");
+        const pass = prompt("Nueva contraseña:");
+        if (!pass) return;
+        try {
+          await apiFetch(`/users/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            body: JSON.stringify({ password: pass }),
+          });
+          showToast("✅ Contraseña actualizada");
+        } catch (e) {
+          alert("No se pudo actualizar la contraseña.");
+        }
+      });
+    });
+  }
+
+  async function loadUsers() {
+    if (!isOwner) return;
+    try {
+      const list = await apiFetch("/users");
+      renderUsers(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.warn("loadUsers error:", e);
+      renderUsers([]);
+    }
+  }
+
+  btnCreateUser?.addEventListener("click", async () => {
+    if (!isOwner) return;
+    const username = (userUsername?.value || "").trim();
+    const password = (userPassword?.value || "").trim();
+    const role = (userRole?.value || "staff").trim();
+    if (!username || !password) return alert("Usuario y contraseña son obligatorios.");
+
+    try {
+      await apiFetch("/users", {
+        method: "POST",
+        body: JSON.stringify({ username, password, role }),
+      });
+      if (userUsername) userUsername.value = "";
+      if (userPassword) userPassword.value = "";
+      if (userRole) userRole.value = "staff";
+      showToast("✅ Usuario creado");
+      loadUsers();
+    } catch (e) {
+      alert("No se pudo crear el usuario. ¿Ya existe?");
+    }
+  });
+
   // ✅ Mostrar productos con stock bajo (ADMIN)
   window.showLowStockModal = function () {
     onlyLowStockMode = true;
@@ -347,7 +518,13 @@
     TABS
   ========================================================== */
   function showTab(name) {
-    const map = { agregar: tabAgregar, lista: tabLista, ventas: tabVentas, pedidos: tabPedidos };
+    const map = {
+      agregar: tabAgregar,
+      lista: tabLista,
+      ventas: tabVentas,
+      pedidos: tabPedidos,
+      usuarios: tabUsuarios,
+    };
 
     Object.values(map).forEach((el) => el && (el.style.display = "none"));
     if (map[name]) map[name].style.display = "block";
@@ -359,10 +536,17 @@
       renderListProducts();
       trySyncProductsFromApi();
     }
-    if (name === "ventas") renderSales();
+    if (name === "ventas") {
+      renderSales();
+      trySyncSalesFromApi();
+    }
     if (name === "pedidos") {
       renderOrders();
       trySyncOrdersFromApi();
+    }
+    if (name === "usuarios") {
+      renderUsers();
+      loadUsers();
     }
     updateStats();
   }
@@ -375,6 +559,8 @@
   logoutBtn?.addEventListener("click", () => {
     localStorage.removeItem(ADMIN_FLAG);
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     window.location.href = "admin_login.html";
   });
 
@@ -753,6 +939,39 @@
     localStorage.setItem(SALES_KEY + "_backup_ts", new Date().toISOString());
   }
 
+  function markSaleSynced(refId, synced) {
+    if (!refId) return;
+    const ventas = loadSalesSafe();
+    const idx = ventas.findIndex((v) => v.refId === refId);
+    if (idx < 0) return;
+    ventas[idx].synced = !!synced;
+    saveSalesSafe(ventas);
+  }
+
+  async function trySyncSalesFromApi() {
+    if (typeof syncSalesFromApi !== "function") return false;
+    try {
+      const list = await syncSalesFromApi();
+      if (Array.isArray(list)) {
+        const local = loadSalesSafe();
+        const unsynced = local.filter((v) => v && v.synced === false);
+        const merged = list.map((v) => ({ ...v, synced: true }));
+
+        unsynced.forEach((v) => merged.push(v));
+        saveSalesSafe(merged);
+        updateStats();
+        localStorage.setItem(API_LAST_SYNC_KEY, String(Date.now()));
+        updateApiLastSyncLabel();
+        checkApiHealth();
+        if (tabVentas && tabVentas.style.display !== "none") renderSales();
+        return true;
+      }
+    } catch (e) {
+      console.warn("syncSalesFromApi error:", e);
+    }
+    return false;
+  }
+
   function renderSales() {
     if (!listaVentas) return;
 
@@ -775,8 +994,12 @@
                 <div style="font-weight:900;">🧾 Venta</div>
                 <div class="muted" style="font-size:12px;">${escapeHTML(v.fecha || "")}</div>
                 ${v.refId ? `<div class="muted" style="font-size:12px;">Ref: <b>${escapeHTML(v.refId)}</b></div>` : ""}
+                ${v.userName ? `<div class="muted" style="font-size:12px;">Vendedor: <b>${escapeHTML(v.userName)}</b></div>` : ""}
               </div>
-              <div style="font-weight:900;font-size:14px;">${formatCOP(v.total || 0)}</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                ${v.synced === false ? `<span class="pill" style="border-color:#f59e0b;">⚠️ Sin sync</span>` : ""}
+                <div style="font-weight:900;font-size:14px;">${formatCOP(v.total || 0)}</div>
+              </div>
             </div>
 
             <details style="margin-top:10px;">
@@ -1203,6 +1426,8 @@
       const sale = {
         fecha: new Date().toLocaleString("es-CO"),
         refId: order.id,
+        userId: currentUser?.id || null,
+        userName: currentUser?.username || "",
         cliente: order.cliente || { nombre: "Consumidor final", telefono: "", direccion: "" },
         items: accepted.map((it) => ({
           nombre: it.nombre,
@@ -1214,10 +1439,17 @@
         total: totalAceptado,
         metodoPago: "",
         fechaISO: nowISO(),
+        synced: false,
       };
 
       ventas.unshift(sale);
       saveSalesSafe(ventas);
+
+      if (typeof apiCreateSale === "function") {
+        apiCreateSale(sale)
+          .then(() => markSaleSynced(sale.refId, true))
+          .catch((e) => console.warn("apiCreateSale error:", e));
+      }
 
       // Recibo asociado
       const receipt = buildReceipt({
@@ -1367,9 +1599,11 @@
 
   trySyncProductsFromApi();
   trySyncOrdersFromApi();
+  trySyncSalesFromApi();
   updateApiLastSyncLabel();
   checkApiHealth();
   updateBackupLabels();
+  ensureAuthUser();
 })();
 
 // Tip semanal: exportar para respaldo (solo 1 vez por semana)

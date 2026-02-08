@@ -1,11 +1,20 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const { dbPromise } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change";
+const TOKEN_TTL = process.env.JWT_TTL || "8h";
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 
 const toNumber = (v, fallback = 0) => {
@@ -31,6 +40,30 @@ const safeJson = (val, fallback = []) => {
   }
 };
 
+const signToken = (user) =>
+  jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+    expiresIn: TOKEN_TTL,
+  });
+
+function authRequired(req, res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "No autorizado" });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch (e) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+
+function ownerOnly(req, res, next) {
+  if (!req.user || req.user.role !== "owner") {
+    return res.status(403).json({ error: "No autorizado" });
+  }
+  return next();
+}
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
@@ -40,9 +73,88 @@ app.get("/", (_req, res) => {
 });
 
 /* ============================
+   Auth
+============================ */
+app.post("/auth/login", async (req, res) => {
+  const { username = "", password = "" } = req.body || {};
+  const u = String(username || "").trim();
+  const p = String(password || "").trim();
+  if (!u || !p) return res.status(400).json({ error: "Usuario y contraseña requeridos" });
+
+  const db = await dbPromise;
+  const user = await db.get("SELECT * FROM users WHERE username = ?", [u]);
+  if (!user) return res.status(401).json({ error: "Credenciales inválidas" });
+
+  const ok = await bcrypt.compare(p, user.passwordHash || "");
+  if (!ok) return res.status(401).json({ error: "Credenciales inválidas" });
+
+  const token = signToken(user);
+  res.json({
+    token,
+    user: { id: user.id, username: user.username, role: user.role },
+  });
+});
+
+app.get("/auth/me", authRequired, async (req, res) => {
+  const db = await dbPromise;
+  const user = await db.get("SELECT id, username, role FROM users WHERE id = ?", [req.user.id]);
+  if (!user) return res.status(401).json({ error: "Usuario inválido" });
+  res.json(user);
+});
+
+/* ============================
+   Usuarios (owner)
+============================ */
+app.get("/users", authRequired, ownerOnly, async (_req, res) => {
+  const db = await dbPromise;
+  const rows = await db.all("SELECT id, username, role, createdAt FROM users ORDER BY id ASC");
+  res.json(rows);
+});
+
+app.post("/users", authRequired, ownerOnly, async (req, res) => {
+  const { username = "", password = "", role = "staff" } = req.body || {};
+  const u = String(username || "").trim();
+  const p = String(password || "").trim();
+  const r = String(role || "staff").trim();
+  if (!u || !p) return res.status(400).json({ error: "Usuario y contraseña requeridos" });
+  if (!["owner", "staff"].includes(r)) return res.status(400).json({ error: "Rol inválido" });
+
+  const db = await dbPromise;
+  const exists = await db.get("SELECT id FROM users WHERE username = ?", [u]);
+  if (exists) return res.status(409).json({ error: "Usuario ya existe" });
+
+  const hash = await bcrypt.hash(p, 10);
+  const result = await db.run(
+    "INSERT INTO users (username, passwordHash, role) VALUES (?,?,?)",
+    [u, hash, r]
+  );
+
+  res.json({ id: result.lastID, username: u, role: r });
+});
+
+app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
+  const id = toInt(req.params.id, 0);
+  if (!id) return res.status(400).json({ error: "ID inválido" });
+
+  const { password, role } = req.body || {};
+  const db = await dbPromise;
+
+  if (password && String(password).trim()) {
+    const hash = await bcrypt.hash(String(password).trim(), 10);
+    await db.run("UPDATE users SET passwordHash = ? WHERE id = ?", [hash, id]);
+  }
+
+  if (role && ["owner", "staff"].includes(String(role))) {
+    await db.run("UPDATE users SET role = ? WHERE id = ?", [String(role), id]);
+  }
+
+  res.json({ ok: true });
+});
+
+/* ============================
    Productos
 ============================ */
-app.get("/products", async (req, res) => {
+app.get("/products", async (_req, res) => {
   const db = await dbPromise;
   const rows = await db.all("SELECT * FROM products ORDER BY id DESC");
   res.json(
@@ -54,7 +166,7 @@ app.get("/products", async (req, res) => {
   );
 });
 
-app.post("/products", async (req, res) => {
+app.post("/products", authRequired, async (req, res) => {
   const p = req.body || {};
   if (!p.nombre) return res.status(400).json({ error: "Nombre requerido" });
   const externalId = p.externalId || p.id || null;
@@ -91,7 +203,7 @@ app.post("/products", async (req, res) => {
   res.json({ id: result.lastID });
 });
 
-app.put("/products/:id", async (req, res) => {
+app.put("/products/:id", authRequired, async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID inválido" });
 
@@ -129,7 +241,7 @@ app.put("/products/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.put("/products/external/:externalId", async (req, res) => {
+app.put("/products/external/:externalId", authRequired, async (req, res) => {
   const externalId = String(req.params.externalId || "").trim();
   if (!externalId) return res.status(400).json({ error: "externalId inválido" });
 
@@ -167,7 +279,7 @@ app.put("/products/external/:externalId", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete("/products/:id", async (req, res) => {
+app.delete("/products/:id", authRequired, async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID inválido" });
 
@@ -176,7 +288,7 @@ app.delete("/products/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete("/products/external/:externalId", async (req, res) => {
+app.delete("/products/external/:externalId", authRequired, async (req, res) => {
   const externalId = String(req.params.externalId || "").trim();
   if (!externalId) return res.status(400).json({ error: "externalId inválido" });
 
@@ -188,7 +300,7 @@ app.delete("/products/external/:externalId", async (req, res) => {
 /* ============================
    Pedidos
 ============================ */
-app.get("/orders", async (req, res) => {
+app.get("/orders", authRequired, async (req, res) => {
   const db = await dbPromise;
   const status = req.query.estado;
   const rows = status
@@ -209,6 +321,12 @@ app.post("/orders", async (req, res) => {
   const externalId = o.externalId || o.id || null;
 
   const db = await dbPromise;
+  if (externalId) {
+    const existing = await db.get("SELECT id FROM orders WHERE externalId = ?", [externalId]);
+    if (existing && existing.id) {
+      return res.json({ id: existing.id, ok: true, existing: true });
+    }
+  }
   const result = await db.run(
     `
     INSERT INTO orders
@@ -229,7 +347,7 @@ app.post("/orders", async (req, res) => {
   res.json({ id: result.lastID });
 });
 
-app.put("/orders/:id/status", async (req, res) => {
+app.put("/orders/:id/status", authRequired, async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID inválido" });
 
@@ -241,7 +359,7 @@ app.put("/orders/:id/status", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.put("/orders/external/:externalId/status", async (req, res) => {
+app.put("/orders/external/:externalId/status", authRequired, async (req, res) => {
   const externalId = String(req.params.externalId || "").trim();
   if (!externalId) return res.status(400).json({ error: "externalId inválido" });
 
@@ -251,6 +369,63 @@ app.put("/orders/external/:externalId/status", async (req, res) => {
   const db = await dbPromise;
   await db.run("UPDATE orders SET estado = ? WHERE externalId = ?", [estado, externalId]);
   res.json({ ok: true });
+});
+
+/* ============================
+   Ventas
+============================ */
+app.get("/sales", authRequired, async (req, res) => {
+  const db = await dbPromise;
+  const isOwner = req.user?.role === "owner";
+  const rows = isOwner
+    ? await db.all("SELECT * FROM sales ORDER BY id DESC")
+    : await db.all("SELECT * FROM sales WHERE userId = ? ORDER BY id DESC", [req.user.id]);
+
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      items: safeJson(r.items, []),
+    }))
+  );
+});
+
+app.post("/sales", authRequired, async (req, res) => {
+  const s = req.body || {};
+  const items = Array.isArray(s.items) ? s.items : [];
+  const total = toNumber(s.total);
+  const refId = s.refId || null;
+
+  const db = await dbPromise;
+  if (refId) {
+    const existing = await db.get("SELECT id FROM sales WHERE refId = ? AND userId = ?", [
+      refId,
+      req.user.id,
+    ]);
+    if (existing && existing.id) {
+      return res.json({ id: existing.id, ok: true, existing: true });
+    }
+  }
+
+  const result = await db.run(
+    `
+    INSERT INTO sales
+    (refId, userId, userName, clienteNombre, clienteTelefono, total, items, metodoPago, fechaISO)
+    VALUES (?,?,?,?,?,?,?,?,?)
+    `,
+    [
+      refId,
+      req.user.id,
+      req.user.username || "",
+      s.clienteNombre || "",
+      s.clienteTelefono || "",
+      total,
+      JSON.stringify(items),
+      s.metodoPago || "",
+      s.fechaISO || new Date().toISOString(),
+    ]
+  );
+
+  res.json({ id: result.lastID });
 });
 
 /* ============================

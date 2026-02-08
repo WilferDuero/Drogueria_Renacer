@@ -16,6 +16,7 @@ const offersPageText = document.getElementById("offersPage");
 const categorySelect = document.getElementById("categorySelect");
 const btnSyncStore = document.getElementById("btnSyncStore");
 const btnApiConfigStore = document.getElementById("btnApiConfigStore");
+const ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
 
 const OFFERS_PAGE_SIZE = 6;
 let offersPage = 1;
@@ -70,6 +71,7 @@ async function trySyncProductsFromApi() {
 async function trySyncOrdersFromApi() {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled) return false;
+  if (!localStorage.getItem(ADMIN_TOKEN_KEY)) return false;
   if (typeof syncOrdersFromApi !== "function") return false;
   try {
     const synced = await syncOrdersFromApi();
@@ -646,6 +648,27 @@ function markOrderSyncStatus(orderId, synced) {
   saveOrders(orders);
 }
 
+async function retryUnsyncedOrders() {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled || typeof apiCreateOrder !== "function") return 0;
+
+  const orders = loadOrders();
+  const pending = orders.filter((o) => o && o.synced === false);
+  let okCount = 0;
+
+  for (const o of pending) {
+    try {
+      await apiCreateOrder(o);
+      markOrderSyncStatus(o.id, true);
+      okCount++;
+    } catch (e) {
+      console.warn("retryUnsyncedOrders error:", e);
+    }
+  }
+
+  return okCount;
+}
+
 /* ==========================================================
   Enviar pedido WhatsApp (cliente)
 ========================================================== */
@@ -926,6 +949,7 @@ function renderMyOrders() {
       renderMyOrders();
       openModal("myOrdersModal");
 
+      await retryUnsyncedOrders();
       const synced = await trySyncOrdersFromApi();
       if (synced) {
         updateMyOrdersCount();
@@ -936,6 +960,7 @@ function renderMyOrders() {
 
   closeBtn?.addEventListener("click", () => closeModal("myOrdersModal"));
   refreshBtn?.addEventListener("click", async () => {
+    await retryUnsyncedOrders();
     await trySyncOrdersFromApi();
     updateMyOrdersCount();
     renderMyOrders();
@@ -1167,6 +1192,9 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
     renderAll(updated);
     initCategories(updated);
   }
+
+  await retryUnsyncedOrders();
+  await trySyncOrdersFromApi();
 })();
 
 /* Reviews init */

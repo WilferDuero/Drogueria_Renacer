@@ -12,36 +12,44 @@
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
   const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
+  const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
+  const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
 
   if (demoBox) demoBox.style.display = DEMO_MODE ? "block" : "none";
 
-  // Credenciales (demo)
-  // Credenciales (demo) — cámbialas antes de entregar
-  const ADMIN_USER = "admin";
-  const ADMIN_PASS = "wilfer1234";
-
-
-  function setError(show) {
-    if (!errEl) return;
-    errEl.style.display = show ? "block" : "none";
-  }
-
-  function doLogin() {
+  async function doLogin() {
     const u = (userEl?.value || "").trim();
     const p = (passEl?.value || "").trim();
 
-    if (u === ADMIN_USER && p === ADMIN_PASS) {
+    if (!u || !p) {
+      setError(true);
+      return;
+    }
+
+    try {
+      localStorage.setItem("API_ENABLED", "true");
+      const data = await apiLogin(u, p);
+      if (!data?.token) throw new Error("Sin token");
+
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user || {}));
       localStorage.setItem(ADMIN_FLAG, "true");
       localStorage.setItem(SESSION_KEY, String(Date.now()));
       showToast("✅ Acceso concedido");
       window.location.href = "admin.html";
-      return;
+    } catch (e) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(ADMIN_FLAG);
+      localStorage.removeItem(SESSION_KEY);
+      setError(true);
+      showToast("❌ Credenciales incorrectas o API no disponible");
     }
+  }
 
-    localStorage.removeItem(ADMIN_FLAG);
-    localStorage.removeItem(SESSION_KEY);
-    setError(true);
-    showToast("❌ Credenciales incorrectas");
+  function setError(show) {
+    if (!errEl) return;
+    errEl.style.display = show ? "block" : "none";
   }
 
   // Enter para enviar
@@ -65,9 +73,12 @@
   (function checkSession() {
     if (localStorage.getItem(ADMIN_FLAG) !== "true") return;
     const ts = Number(localStorage.getItem(SESSION_KEY) || 0);
-    if (!ts || Date.now() - ts > SESSION_TTL) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!ts || Date.now() - ts > SESSION_TTL || !token) {
       localStorage.removeItem(ADMIN_FLAG);
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
       return;
     }
     window.location.href = "admin.html";

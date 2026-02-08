@@ -8,10 +8,19 @@ const CART_KEY = "cart_renacer";
 const ADMIN_FLAG = "admin_logged";
 const ADMIN_SESSION_TS_KEY = "admin_session_ts_v1";
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
+const ADMIN_TOKEN_KEY = "admin_token_v1";
+const ADMIN_USER_KEY = "admin_user_v1";
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
-const API_BASE = localStorage.getItem("API_BASE") || "http://localhost:3001";
-const API_ENABLED = localStorage.getItem("API_ENABLED") !== "false";
+const API_BASE_DEFAULT =
+  !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? "http://localhost:3001"
+    : "https://drogueria-renacer.onrender.com";
+const API_BASE = localStorage.getItem("API_BASE") || API_BASE_DEFAULT;
+const API_ENABLED = (() => {
+  const v = localStorage.getItem("API_ENABLED");
+  return v === null ? true : v !== "false";
+})();
 
 /* Umbral de alerta de stock (basado en cajas disponibles) */
 const STOCK_BAJO_LIMIT = 2;
@@ -210,12 +219,15 @@ async function apiFetch(path, options = {}) {
   if (!API_ENABLED) throw new Error("API deshabilitada");
   const url = API_BASE.replace(/\/$/, "") + path;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const isRemote = /onrender\.com|railway\.app|vercel\.app/i.test(API_BASE);
+  const timeout = setTimeout(() => controller.abort(), isRemote ? 10000 : 4000);
 
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
     const res = await fetch(url, { ...options, headers, signal: controller.signal });
@@ -225,6 +237,17 @@ async function apiFetch(path, options = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function apiLogin(username, password) {
+  return apiFetch("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+async function apiMe() {
+  return apiFetch("/auth/me");
 }
 
 function normalizeApiOrder(o) {
@@ -378,6 +401,27 @@ async function apiCreateReview(review) {
     verificada: review?.verified ? 1 : 0,
   };
   return apiFetch("/reviews", { method: "POST", body: JSON.stringify(payload) });
+}
+
+async function apiCreateSale(sale) {
+  const payload = {
+    refId: sale?.refId || "",
+    clienteNombre: sale?.cliente?.nombre || "",
+    clienteTelefono: sale?.cliente?.telefono || "",
+    total: sale?.total || 0,
+    items: sale?.items || [],
+    metodoPago: sale?.metodoPago || "",
+    fechaISO: sale?.fechaISO || nowISO(),
+  };
+  return apiFetch("/sales", { method: "POST", body: JSON.stringify(payload) });
+}
+
+async function syncSalesFromApi() {
+  try {
+    const list = await apiFetch("/sales");
+    if (Array.isArray(list)) return list;
+  } catch (e) {}
+  return null;
 }
 
 /* ==========================================================
@@ -1349,6 +1393,8 @@ window.CART_KEY = CART_KEY;
 window.ADMIN_FLAG = ADMIN_FLAG;
 window.ADMIN_SESSION_TS_KEY = ADMIN_SESSION_TS_KEY;
 window.ADMIN_SESSION_TTL_MS = ADMIN_SESSION_TTL_MS;
+window.ADMIN_TOKEN_KEY = ADMIN_TOKEN_KEY;
+window.ADMIN_USER_KEY = ADMIN_USER_KEY;
 window.WHATS_NUMBER = WHATS_NUMBER;
 window.DEMO_MODE = DEMO_MODE;
 
@@ -1372,6 +1418,8 @@ window.isRememberEnabled = isRememberEnabled;
 window.API_BASE = API_BASE;
 window.API_ENABLED = API_ENABLED;
 window.apiFetch = apiFetch;
+window.apiLogin = apiLogin;
+window.apiMe = apiMe;
 window.syncProductsFromApi = syncProductsFromApi;
 window.apiUpsertProduct = apiUpsertProduct;
 window.apiDeleteProduct = apiDeleteProduct;
@@ -1379,6 +1427,8 @@ window.apiCreateOrder = apiCreateOrder;
 window.syncOrdersFromApi = syncOrdersFromApi;
 window.apiUpdateOrderStatus = apiUpdateOrderStatus;
 window.apiCreateReview = apiCreateReview;
+window.apiCreateSale = apiCreateSale;
+window.syncSalesFromApi = syncSalesFromApi;
 
 /* Exponer el cart global si lo necesitas en debugging */
 window.cart = cart;

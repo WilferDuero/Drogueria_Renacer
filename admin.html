@@ -6,7 +6,7 @@
   <title>Admin - Droguería Renacer</title>
   <meta name="theme-color" content="#0b63d0">
   <link rel="manifest" href="manifest-admin.json">
-  <link rel="stylesheet" href="style.css?v=20260208">
+  <link rel="stylesheet" href="style.css?v=20260208b">
 </head>
 <body>
   <!-- Contenedor de notificaciones (toast) -->
@@ -27,6 +27,9 @@
         <span class="api-dot"></span>
         <span class="api-text">API: --</span>
         <span id="apiLastSyncAdmin" class="api-last-sync">Última sync: --</span>
+      </div>
+      <div id="adminUserInfo" class="api-status" title="Usuario actual">
+        <span class="api-text">Usuario: --</span>
       </div>
       <button id="btnSyncAdmin" class="icon-btn small" style="border: 1px solid rgba(255,255,255,0.2);" type="button">
         ↻ Sincronizar
@@ -124,6 +127,7 @@
         <button class="tab-btn" data-tab="lista" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Listar Productos</button>
         <button class="tab-btn" data-tab="ventas" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Historial Ventas</button>
         <button class="tab-btn" data-tab="pedidos" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Pedidos</button>
+        <button class="tab-btn" data-tab="usuarios" style="padding: 12px 20px; background: transparent; border: none; color: var(--color-text-secondary); font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 150ms;">Usuarios</button>
       </div>
 
       <!-- Agregar -->
@@ -300,6 +304,28 @@
         </div>
         <div id="ordersList" style="display:grid;gap:12px;"></div>
       </section>
+
+      <!-- Usuarios -->
+      <section id="tab-usuarios" class="tab-content" style="display: none;">
+        <div class="box">
+          <h2 style="margin-top:0;">Usuarios</h2>
+          <div class="muted" style="font-size:12px;margin-bottom:10px;">
+            Solo el dueño puede crear o modificar usuarios.
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+            <input id="userUsername" type="text" placeholder="Usuario (ej: empleado1)">
+            <input id="userPassword" type="password" placeholder="Contraseña temporal">
+            <select id="userRole">
+              <option value="staff">Empleado</option>
+              <option value="owner">Dueño</option>
+            </select>
+            <button id="btnCreateUser" class="btn primary" type="button">Crear usuario</button>
+          </div>
+
+          <div id="usersList" style="display:grid;gap:12px;margin-top:16px;"></div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -326,8 +352,8 @@
     </div>
   </div>
 
-  <script src="js/core.js?v=20260208"></script>
-  <script src="js/admin.js?v=20260208"></script>
-  <script src="js/admin_pwa.js?v=20260208"></script>
+  <script src="js/core.js?v=20260208b"></script>
+  <script src="js/admin.js?v=20260208b"></script>
+  <script src="js/admin_pwa.js?v=20260208b"></script>
 </body>
 </html>
