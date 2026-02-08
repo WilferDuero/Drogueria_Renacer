@@ -213,6 +213,7 @@ h4 { font-size: var(--font-size-xl); }
 
 .brand-logos{ display:flex; align-items:center; gap:10px; }
 .brand-logo { width: 112px; height: 112px; border-radius: var(--radius-md); object-fit: cover; }
+.brand-logo--main{ width: 128px; height: 128px; }
 .brand-logo--partner{ width: 72px; height: 72px; object-fit: contain; background: #fff; padding: 6px; }
 .brand-text h1 { font-size: 22px; color: var(--color-white); font-weight: var(--font-weight-semibold); }
 .tagline { font-size: var(--font-size-sm); opacity: 0.95; color: var(--color-cream-100); }
@@ -802,6 +803,7 @@ body.modal-open { overflow: hidden; }
 
 @media (max-width: 720px){
   .brand-logo{ width: 88px; height: 88px; }
+  .brand-logo--main{ width: 104px; height: 104px; }
   .brand-logo--partner{ width: 60px; height: 60px; padding: 5px; }
   .header-center{ order: 3; width: 100%; padding-top: 6px; }
   .header-right{ order: 2; }
