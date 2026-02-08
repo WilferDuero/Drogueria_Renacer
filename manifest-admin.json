@@ -1,0 +1,17 @@
+{
+  "name": "Admin Drogueria Renacer",
+  "short_name": "Admin Renacer",
+  "start_url": "/admin_login.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fdfdf9",
+  "theme_color": "#0b63d0",
+  "icons": [
+    {
+      "src": "assets/payments/Logo_Drogueria.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
