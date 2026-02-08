@@ -268,17 +268,17 @@
   }
 
   function configureApiFromPrompt() {
-    const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
-    const base = prompt("URL del backend (API_BASE):", current);
-    if (base === null) return;
-    const trimmed = String(base).trim();
-    if (!trimmed) return alert("URL inválida.");
+    const modal = document.getElementById("apiConfigModal");
+    const input = document.getElementById("apiBaseInput");
+    const enabled = document.getElementById("apiEnabledInput");
+    if (!modal || !input || !enabled) return;
 
-    const enabled = confirm("¿Activar API ahora? (OK = Sí / Cancel = No)");
-    localStorage.setItem("API_BASE", trimmed);
-    localStorage.setItem("API_ENABLED", enabled ? "true" : "false");
-    showToast(enabled ? "✅ API activada" : "⚠️ API desactivada");
-    setTimeout(() => window.location.reload(), 300);
+    input.value = localStorage.getItem("API_BASE") || "http://localhost:3001";
+    enabled.checked = localStorage.getItem("API_ENABLED") !== "false";
+
+    openModal("apiConfigModal");
+    updateApiLastSyncLabel();
+    checkApiHealth();
   }
 
   async function handleAdminSync() {
@@ -380,6 +380,28 @@
 
   btnSyncAdmin?.addEventListener("click", handleAdminSync);
   btnApiConfigAdmin?.addEventListener("click", configureApiFromPrompt);
+
+  // Modal API config (admin)
+  document.getElementById("closeApiConfig")?.addEventListener("click", () => closeModal("apiConfigModal"));
+  document.getElementById("cancelApiConfig")?.addEventListener("click", () => closeModal("apiConfigModal"));
+  document.getElementById("apiConfigModal")?.addEventListener("click", (e) => {
+    const modal = document.getElementById("apiConfigModal");
+    if (modal && e.target === modal) closeModal("apiConfigModal");
+  });
+  document.getElementById("saveApiConfig")?.addEventListener("click", () => {
+    const input = document.getElementById("apiBaseInput");
+    const enabled = document.getElementById("apiEnabledInput");
+    if (!input || !enabled) return;
+
+    const trimmed = String(input.value || "").trim();
+    if (!trimmed) return alert("URL inválida.");
+
+    localStorage.setItem("API_BASE", trimmed);
+    localStorage.setItem("API_ENABLED", enabled.checked ? "true" : "false");
+    showToast(enabled.checked ? "✅ API activada" : "⚠️ API desactivada");
+    closeModal("apiConfigModal");
+    setTimeout(() => window.location.reload(), 300);
+  });
 
   /* ==========================================================
     CRUD PRODUCTOS

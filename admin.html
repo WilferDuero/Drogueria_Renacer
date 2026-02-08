@@ -303,6 +303,29 @@
     </div>
   </main>
 
+  <!-- ✅ Modal Config API (admin) -->
+  <div id="apiConfigModal" class="cart-modal hidden" aria-hidden="true">
+    <div class="cart-panel" style="max-width:520px;">
+      <button id="closeApiConfig" class="close-x" aria-label="Cerrar">×</button>
+      <h3 style="margin-top:0;">Configurar API</h3>
+      <div class="muted" style="font-size:12px;margin-bottom:10px;">
+        Usa la URL del backend remoto o local.
+      </div>
+      <label style="display:block;margin-bottom:6px;font-weight:600;font-size:13px;">URL API</label>
+      <input id="apiBaseInput" type="text" placeholder="https://tu-api.onrender.com">
+
+      <label class="inline-check" style="margin-top:8px;">
+        <input id="apiEnabledInput" type="checkbox">
+        Activar API
+      </label>
+
+      <div class="inline-row" style="margin-top:12px;">
+        <button id="saveApiConfig" class="btn primary" type="button">Guardar</button>
+        <button id="cancelApiConfig" class="btn ghost" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/core.js?v=20260208"></script>
   <script src="js/admin.js?v=20260208"></script>
   <script src="js/admin_pwa.js?v=20260208"></script>
