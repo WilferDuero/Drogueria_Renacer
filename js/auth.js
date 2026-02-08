@@ -48,12 +48,38 @@
   btnEl?.addEventListener("click", doLogin);
 
   if (togglePass && passEl) {
-    togglePass.addEventListener("click", () => {
-      const showing = passEl.type === "text";
-      passEl.type = showing ? "password" : "text";
-      togglePass.classList.toggle("is-open", !showing);
-      togglePass.setAttribute("aria-pressed", String(!showing));
-      togglePass.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+    const showPass = () => {
+      passEl.type = "text";
+      togglePass.classList.add("is-open");
+      togglePass.setAttribute("aria-pressed", "true");
+      togglePass.setAttribute("aria-label", "Ocultar contraseña");
+    };
+
+    const hidePass = () => {
+      passEl.type = "password";
+      togglePass.classList.remove("is-open");
+      togglePass.setAttribute("aria-pressed", "false");
+      togglePass.setAttribute("aria-label", "Mostrar contraseña");
+    };
+
+    // Mantener presionado para ver
+    togglePass.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      showPass();
+    });
+    togglePass.addEventListener("pointerup", hidePass);
+    togglePass.addEventListener("pointerleave", hidePass);
+    togglePass.addEventListener("pointercancel", hidePass);
+
+    // Accesibilidad con teclado
+    togglePass.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        showPass();
+      }
+    });
+    togglePass.addEventListener("keyup", (e) => {
+      if (e.key === " " || e.key === "Enter") hidePass();
     });
   }
 
