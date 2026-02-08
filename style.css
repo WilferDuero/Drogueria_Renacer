@@ -484,6 +484,26 @@ textarea { resize: vertical; }
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--color-card-border);
 }
+.password-field{
+  position: relative;
+}
+.password-field input{
+  padding-right: 72px;
+}
+.password-toggle{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
 .login-header { text-align: center; margin-bottom: 24px; }
 .login-header h1 { font-size: 32px; color: var(--color-primary); margin-bottom: 8px; }
 .login-header p { color: var(--color-text-secondary); font-size: 14px; }

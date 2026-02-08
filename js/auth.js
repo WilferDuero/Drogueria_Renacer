@@ -8,6 +8,7 @@
   const btnEl = document.getElementById("loginBtn");
   const errEl = document.getElementById("loginError");
   const demoBox = document.getElementById("demoCredentials");
+  const togglePass = document.getElementById("togglePass");
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
 
   if (demoBox) demoBox.style.display = DEMO_MODE ? "block" : "none";
@@ -45,6 +46,16 @@
   });
 
   btnEl?.addEventListener("click", doLogin);
+
+  if (togglePass && passEl) {
+    togglePass.addEventListener("click", () => {
+      const showing = passEl.type === "text";
+      passEl.type = showing ? "password" : "text";
+      togglePass.textContent = showing ? "Ver" : "Ocultar";
+      togglePass.setAttribute("aria-pressed", String(!showing));
+      togglePass.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+    });
+  }
 
   // Si ya está logueado, redirige
   if (localStorage.getItem(ADMIN_FLAG) === "true") {

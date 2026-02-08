@@ -24,7 +24,12 @@
 
     <div class="form-group">
       <label for="loginPass">Contraseña</label>
-      <input type="password" id="loginPass" placeholder="••••••••">
+      <div class="password-field">
+        <input type="password" id="loginPass" placeholder="••••••••">
+        <button id="togglePass" class="password-toggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false">
+          Ver
+        </button>
+      </div>
     </div>
 
     <button id="loginBtn" class="btn btn--primary btn--full-width" type="button">Ingresar</button>
