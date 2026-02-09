@@ -83,6 +83,22 @@ async function trySyncOrdersFromApi() {
   return false;
 }
 
+async function trySyncReviewsFromApi() {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) return false;
+  if (typeof syncReviewsFromApi !== "function") return false;
+  try {
+    const synced = await syncReviewsFromApi();
+    if (synced) {
+      renderReviews();
+      return true;
+    }
+  } catch (e) {
+    console.warn("syncReviewsFromApi error:", e);
+  }
+  return false;
+}
+
 function configureApiFromPrompt() {
   const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
   const base = prompt("URL del backend (API_BASE):", current);
@@ -105,7 +121,11 @@ async function handleStoreSync() {
     return;
   }
   showToast("Sincronizando...");
-  const [pSynced, oSynced] = await Promise.all([trySyncProductsFromApi(), trySyncOrdersFromApi()]);
+  const [pSynced, oSynced, rSynced] = await Promise.all([
+    trySyncProductsFromApi(),
+    trySyncOrdersFromApi(),
+    trySyncReviewsFromApi(),
+  ]);
   if (pSynced) {
     const list = getAllProducts();
     offersPage = 1;
@@ -114,7 +134,7 @@ async function handleStoreSync() {
     initCategories(list);
   }
   if (oSynced) updateMyOrdersCount();
-  showToast(pSynced || oSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
+  showToast(pSynced || oSynced || rSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
 }
 
 /* ==========================================================
@@ -1216,4 +1236,5 @@ if (document.getElementById("reviewsSection")) {
   initStarsPicker();
   fillReviewPhoneFromCustomer();
   renderReviews();
+  trySyncReviewsFromApi();
 }

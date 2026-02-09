@@ -340,6 +340,44 @@ async function apiCreateReview(review) {
   return apiFetch("/reviews", { method: "POST", body: JSON.stringify(payload) });
 }
 
+async function syncReviewsFromApi(options = {}) {
+  const allowEmpty = !!options.allowEmpty;
+  try {
+    const list = await apiFetch("/reviews");
+    if (Array.isArray(list)) {
+      let local = [];
+      try {
+        local = JSON.parse(localStorage.getItem(REVIEWS_KEY) || "[]");
+      } catch {
+        local = [];
+      }
+
+      if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+
+      const normalized = list.map((r) => ({
+        id: String(r?.id || r?.externalId || ""),
+        nombre: r?.nombre || "Cliente",
+        telefonoDigits: normPhoneDigits(r?.telefono || ""),
+        rating: Number(r?.rating) || 0,
+        texto: r?.texto || "",
+        verified: !!r?.verificada,
+        fechaISO: r?.createdAt || r?.createdat || nowISO(),
+      }));
+
+      const key = (r) => `${r.telefonoDigits || ""}|${r.texto || ""}|${r.fechaISO || ""}`;
+      const apiKeys = new Set(normalized.map(key));
+      const merged = normalized.slice();
+      (Array.isArray(local) ? local : []).forEach((r) => {
+        if (!apiKeys.has(key(r))) merged.push(r);
+      });
+
+      localStorage.setItem(REVIEWS_KEY, JSON.stringify(merged));
+      return merged;
+    }
+  } catch (e) {}
+  return null;
+}
+
 async function apiCreateSale(sale) {
   const payload = {
     refId: sale?.refId || "",
@@ -768,7 +806,12 @@ function sendOrderToWhatsApp(order) {
 function normalizeWhatsPhone(phoneDigits) {
   let d = String(phoneDigits || "").replace(/\D/g, "");
   if (!d) return "";
+  d = d.replace(/^0+/, "");
+  if (d.startsWith("57") && d.length === 13 && d[2] === "0") {
+    d = "57" + d.slice(3);
+  }
   if (d.length === 10) d = "57" + d;
+  if (d.length < 10) return "";
   return d;
 }
 
@@ -1271,7 +1314,7 @@ function openReceiptWindow(receipt) {
 }
 
 function sendReceiptToWhatsApp(receipt, phoneDigits) {
-  const tel = String(phoneDigits || "").replace(/\D/g, "");
+  const tel = normalizeWhatsPhone(phoneDigits);
   if (!tel) {
     alert("Teléfono inválido para WhatsApp.");
     return;
@@ -1364,6 +1407,7 @@ window.apiCreateOrder = apiCreateOrder;
 window.syncOrdersFromApi = syncOrdersFromApi;
 window.apiUpdateOrderStatus = apiUpdateOrderStatus;
 window.apiCreateReview = apiCreateReview;
+window.syncReviewsFromApi = syncReviewsFromApi;
 window.apiCreateSale = apiCreateSale;
 window.syncSalesFromApi = syncSalesFromApi;
 
