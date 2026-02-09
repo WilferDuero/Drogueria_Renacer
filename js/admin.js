@@ -60,6 +60,7 @@
   ---------------------------- */
   const logoutBtn = document.getElementById("logoutBtn");
   const btnSyncAdmin = document.getElementById("btnSyncAdmin");
+  const btnPushProductsAdmin = document.getElementById("btnPushProductsAdmin");
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
   const adminUserInfo = document.getElementById("adminUserInfo");
 
@@ -400,6 +401,61 @@
     return false;
   }
 
+  async function pushAllProductsToApi() {
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (!enabled) {
+      showToast("API desactivada");
+      return false;
+    }
+    if (typeof apiFetch !== "function") {
+      showToast("API no disponible");
+      return false;
+    }
+
+    const local = loadSavedProductsArray();
+    if (!Array.isArray(local) || local.length === 0) {
+      showToast("No hay productos para publicar");
+      return false;
+    }
+
+    try {
+      showToast("Publicando productos...");
+      const remote = await apiFetch("/products");
+      const existing = new Set(
+        (Array.isArray(remote) ? remote : []).map((p) => String(p.externalId || p.id || ""))
+      );
+
+      let created = 0;
+      let updated = 0;
+      for (const p of local) {
+        const id = String(p.id || "");
+        if (!id) continue;
+        const payload = { ...p, externalId: p.id };
+        if (existing.has(id)) {
+          await apiFetch(`/products/external/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+          updated++;
+        } else {
+          await apiFetch("/products", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          created++;
+        }
+      }
+
+      showToast(`✅ Productos publicados (${created} nuevos, ${updated} actualizados)`);
+      trySyncProductsFromApi();
+      return true;
+    } catch (e) {
+      console.warn("pushAllProductsToApi error:", e);
+      showToast("❌ No se pudo publicar productos");
+      return false;
+    }
+  }
+
   /* ==========================================================
     Usuarios (solo owner)
   ========================================================== */
@@ -579,6 +635,11 @@
   }
 
   tabBtns.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+  btnPushProductsAdmin?.addEventListener("click", async () => {
+    if (!confirm("¿Publicar todos los productos al servidor?")) return;
+    await pushAllProductsToApi();
+  });
 
   /* ==========================================================
     LOGOUT
