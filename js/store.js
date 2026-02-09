@@ -16,7 +16,8 @@ const offersPageText = document.getElementById("offersPage");
 const categorySelect = document.getElementById("categorySelect");
 const btnSyncStore = document.getElementById("btnSyncStore");
 const btnApiConfigStore = document.getElementById("btnApiConfigStore");
-const ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
+const STORE_ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
+
 
 const OFFERS_PAGE_SIZE = 6;
 let offersPage = 1;
@@ -71,7 +72,7 @@ async function trySyncProductsFromApi() {
 async function trySyncOrdersFromApi() {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled) return false;
-  if (!localStorage.getItem(ADMIN_TOKEN_KEY)) return false;
+  if (!localStorage.getItem(STORE_ADMIN_TOKEN_KEY)) return false;
   if (typeof syncOrdersFromApi !== "function") return false;
   try {
     const synced = await syncOrdersFromApi();
