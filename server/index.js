@@ -144,7 +144,8 @@ app.post("/auth/login", async (req, res) => {
     return res.status(401).json({ error: "Credenciales inválidas" });
   }
 
-  const ok = await bcrypt.compare(p, user.passwordHash || "");
+  const hash = user.passwordHash || user.passwordhash || "";
+  const ok = await bcrypt.compare(p, hash);
   if (!ok) {
     recordLoginFailure(ip);
     return res.status(401).json({ error: "Credenciales inválidas" });
