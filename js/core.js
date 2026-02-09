@@ -16,7 +16,14 @@ const API_BASE_DEFAULT =
   !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1"
     ? "http://localhost:3001"
     : "https://drogueria-renacer.onrender.com";
-const API_BASE = localStorage.getItem("API_BASE") || API_BASE_DEFAULT;
+const API_BASE_STORED = localStorage.getItem("API_BASE");
+const IS_LOCAL_HOST =
+  !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+let API_BASE = API_BASE_STORED || API_BASE_DEFAULT;
+if (!IS_LOCAL_HOST && API_BASE_STORED && /localhost|127\.0\.0\.1/i.test(API_BASE_STORED)) {
+  API_BASE = API_BASE_DEFAULT;
+  localStorage.setItem("API_BASE", API_BASE);
+}
 const API_ENABLED = (() => {
   const v = localStorage.getItem("API_ENABLED");
   return v === null ? true : v !== "false";

@@ -1172,6 +1172,19 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
 (async function initStore() {
   if (!productsGrid) return;
 
+  const isLocalHost =
+    !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  const apiBase = typeof API_BASE === "string" ? API_BASE : localStorage.getItem("API_BASE") || "";
+  if (!isLocalHost && /localhost|127\.0\.0\.1/i.test(apiBase)) {
+    localStorage.setItem("API_BASE", "https://drogueria-renacer.onrender.com");
+    localStorage.setItem("API_ENABLED", "true");
+    window.location.reload();
+    return;
+  }
+  if (!isLocalHost && localStorage.getItem("API_ENABLED") === "false") {
+    localStorage.setItem("API_ENABLED", "true");
+  }
+
   const renderAll = (list) => {
     offersPage = 1;
     renderOffers(list);
