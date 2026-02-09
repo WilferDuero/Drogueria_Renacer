@@ -329,6 +329,10 @@ async function apiUpdateOrderStatus(order) {
   });
 }
 
+async function apiClearOrders() {
+  return apiFetch("/orders", { method: "DELETE" });
+}
+
 async function apiCreateReview(review) {
   const payload = {
     nombre: review?.nombre || "",
@@ -389,6 +393,10 @@ async function apiCreateSale(sale) {
     fechaISO: sale?.fechaISO || nowISO(),
   };
   return apiFetch("/sales", { method: "POST", body: JSON.stringify(payload) });
+}
+
+async function apiClearSales() {
+  return apiFetch("/sales", { method: "DELETE" });
 }
 
 async function syncSalesFromApi() {
@@ -1406,9 +1414,11 @@ window.apiDeleteProduct = apiDeleteProduct;
 window.apiCreateOrder = apiCreateOrder;
 window.syncOrdersFromApi = syncOrdersFromApi;
 window.apiUpdateOrderStatus = apiUpdateOrderStatus;
+window.apiClearOrders = apiClearOrders;
 window.apiCreateReview = apiCreateReview;
 window.syncReviewsFromApi = syncReviewsFromApi;
 window.apiCreateSale = apiCreateSale;
+window.apiClearSales = apiClearSales;
 window.syncSalesFromApi = syncSalesFromApi;
 
 /* Exponer el cart global si lo necesitas en debugging */

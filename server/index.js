@@ -502,6 +502,12 @@ app.put("/orders/external/:externalId/status", authRequired, async (req, res) =>
   res.json({ ok: true });
 });
 
+app.delete("/orders", authRequired, ownerOnly, async (_req, res) => {
+  const db = await dbPromise;
+  await db.run("DELETE FROM orders");
+  res.json({ ok: true });
+});
+
 /* ============================
    Ventas
 ============================ */
@@ -557,6 +563,12 @@ app.post("/sales", authRequired, async (req, res) => {
   );
 
   res.json({ id: result.lastID });
+});
+
+app.delete("/sales", authRequired, ownerOnly, async (_req, res) => {
+  const db = await dbPromise;
+  await db.run("DELETE FROM sales");
+  res.json({ ok: true });
 });
 
 /* ============================

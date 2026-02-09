@@ -1241,18 +1241,29 @@
     updateBackupLabels();
   });
 
-  btnLimpiarVentas?.addEventListener("click", () => {
-    if (!confirm("¿Borrar historial de ventas?")) return;
+  async function clearSalesEverywhere(label) {
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (enabled && typeof apiClearSales === "function") {
+      try {
+        await apiClearSales();
+      } catch (e) {
+        console.warn("apiClearSales error:", e);
+      }
+    }
     saveSalesSafe([]);
-    showToast("🧹 Ventas borradas");
+    showToast(label);
     renderSales();
+    updateStats();
+  }
+
+  btnLimpiarVentas?.addEventListener("click", async () => {
+    if (!confirm("¿Borrar historial de ventas?")) return;
+    await clearSalesEverywhere("🧹 Ventas borradas");
   });
 
-  btnClearVentas?.addEventListener("click", () => {
+  btnClearVentas?.addEventListener("click", async () => {
     if (!confirm("¿Limpiar ventas (pruebas)?")) return;
-    saveSalesSafe([]);
-    showToast("🧹 Ventas (pruebas) borradas");
-    renderSales();
+    await clearSalesEverywhere("🧹 Ventas (pruebas) borradas");
   });
 
   /* ==========================================================
@@ -1681,8 +1692,16 @@
     renderOrders();
   });
 
-  btnClearOrders?.addEventListener("click", () => {
+  btnClearOrders?.addEventListener("click", async () => {
     if (!confirm("¿Borrar TODOS los pedidos (pruebas)?")) return;
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (enabled && typeof apiClearOrders === "function") {
+      try {
+        await apiClearOrders();
+      } catch (e) {
+        console.warn("apiClearOrders error:", e);
+      }
+    }
     saveOrders([]);
     showToast("🧹 Pedidos borrados");
     renderOrders();
