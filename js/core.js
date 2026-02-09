@@ -64,78 +64,8 @@ const COP = new Intl.NumberFormat("es-CO", {
 /* ==========================================================
   Estado
 ========================================================== */
-let products = [
-  {
-    id: "I1",
-    nombre: "Ibuprofeno 400mg",
-    descripcion: "Analgésico y antiinflamatorio.",
-    categoria: "Medicamentos",
-    disponibilidad: "Disponible",
-    imagen: "https://i.ibb.co/rfffNXs3/Ibuprofeno.jpg",
-    precioCaja: 120000,
-    precioSobre: 12000,
-    precioUnidad: 600,
-    sobresXCaja: 10,
-    unidadesXSobre: 20,
-    stockCajas: 10,
-  },
-  {
-    id: "I2",
-    nombre: "Vitamina C 1000mg",
-    descripcion: "Refuerzo del sistema inmune.",
-    categoria: "Suplementos",
-    disponibilidad: "Disponible",
-    imagen: "https://i.ibb.co/FLf1gr2G/Vitamina-C.jpg",
-    precioCaja: 250000,
-    precioSobre: 25000,
-    precioUnidad: 0,
-    sobresXCaja: 10,
-    unidadesXSobre: 0,
-    stockCajas: 8,
-  },
-  {
-    id: "I3",
-    nombre: "Multivitamínico",
-    descripcion: "Complejo diario",
-    categoria: "Suplementos",
-    disponibilidad: "Disponible",
-    imagen: "https://i.ibb.co/zHXvLJvW/Multivitaminico.webp",
-    precioCaja: 0,
-    precioSobre: 8000,
-    precioUnidad: 0,
-    sobresXCaja: 0,
-    unidadesXSobre: 0,
-    stockCajas: 15,
-  },
-  {
-    id: "I4",
-    nombre: "Advil",
-    descripcion: "Alivio rápido",
-    categoria: "Medicamentos",
-    disponibilidad: "Disponible",
-    imagen: "https://i.ibb.co/MDQxM2rR/Advil.jpg",
-    precioCaja: 50000,
-    precioSobre: 5000,
-    precioUnidad: 500,
-    sobresXCaja: 10,
-    unidadesXSobre: 10,
-    stockCajas: 3,
-  },
-  {
-    id: "I5",
-    nombre: "Acetaminofén",
-    descripcion: "Caja x 20",
-    categoria: "Medicamentos",
-    disponibilidad: "Disponible",
-    imagen: "https://i.ibb.co/1DTYtDT/Acetaminofen.jpg",
-    precioCaja: 350000,
-    precioSobre: 35000,
-    precioUnidad: 0,
-    sobresXCaja: 10,
-    unidadesXSobre: 0,
-    stockCajas: 20,
-  },
-];
+// Base vacia: los productos se crean desde el panel admin.
+let products = [];
 
 let cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
 let sales = JSON.parse(localStorage.getItem(SALES_KEY) || "[]");

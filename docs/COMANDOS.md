@@ -16,9 +16,9 @@ refreshenv
 
 Entrar a PostgreSQL remoto (Render):
 ```powershell
-$env:PGPASSWORD="TU_PASSWORD"
-psql -h TU_HOST -U TU_USER TU_DB
-```
+$env:PGPASSWORD="DQw5yBhnkGmcvEvGBsmF3vjCQ3LqBcAi"
+psql -h dpg-d64iim9r0fns73c8fnqg-a.oregon-postgres.render.com -U drogueria_db_user drogueria_db
+
 
 Generar hash bcrypt para una clave:
 ```powershell
