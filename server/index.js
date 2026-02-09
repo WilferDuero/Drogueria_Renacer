@@ -48,6 +48,39 @@ const safeJson = (val, fallback = []) => {
   }
 };
 
+const pick = (obj, ...keys) => {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null) return v;
+  }
+  return undefined;
+};
+
+function normalizeProductRow(r) {
+  const externalId = pick(r, "externalId", "externalid");
+  return {
+    id: externalId || r.id,
+    externalId: externalId || null,
+    nombre: pick(r, "nombre") || "",
+    descripcion: pick(r, "descripcion") || "",
+    categoria: pick(r, "categoria") || "",
+    disponibilidad: pick(r, "disponibilidad") || "Disponible",
+    imagen: pick(r, "imagen") || "",
+    precioCaja: toNumber(pick(r, "precioCaja", "preciocaja")),
+    precioSobre: toNumber(pick(r, "precioSobre", "preciosobre")),
+    precioUnidad: toNumber(pick(r, "precioUnidad", "preciounidad")),
+    sobresXCaja: toInt(pick(r, "sobresXCaja", "sobresxcaja")),
+    unidadesXSobre: toInt(pick(r, "unidadesXSobre", "unidadesxsobre")),
+    stockCajas: toInt(pick(r, "stockCajas", "stockcajas")),
+    ofertaActiva: !!pick(r, "ofertaActiva", "ofertaactiva"),
+    ofertaTexto: pick(r, "ofertaTexto", "ofertatexto") || "",
+    ofertaPrecioCaja: toNumber(pick(r, "ofertaPrecioCaja", "ofertapreciocaja")),
+    ofertaPrecioSobre: toNumber(pick(r, "ofertaPrecioSobre", "ofertapreciosobre")),
+    createdAt: pick(r, "createdAt", "createdat"),
+    updatedAt: pick(r, "updatedAt", "updatedat"),
+  };
+}
+
 const signToken = (user) =>
   jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, {
     expiresIn: TOKEN_TTL,
@@ -228,13 +261,7 @@ app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
 app.get("/products", async (_req, res) => {
   const db = await dbPromise;
   const rows = await db.all("SELECT * FROM products ORDER BY id DESC");
-  res.json(
-    rows.map((r) => ({
-      ...r,
-      id: r.externalId || r.id,
-      ofertaActiva: !!r.ofertaActiva,
-    }))
-  );
+  res.json(rows.map(normalizeProductRow));
 });
 
 app.post("/products", authRequired, async (req, res) => {
