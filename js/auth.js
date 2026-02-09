@@ -15,7 +15,13 @@
   const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
   const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
 
-  if (demoBox) demoBox.style.display = DEMO_MODE ? "block" : "none";
+  const isFile = window.location?.protocol === "file:";
+  const isLocalHost =
+    window.location?.hostname === "localhost" || window.location?.hostname === "127.0.0.1";
+  const apiBase = localStorage.getItem("API_BASE") || "";
+  const looksLocalApi = /localhost|127\.0\.0\.1/i.test(apiBase);
+  const showDemo = DEMO_MODE && (isFile || isLocalHost || looksLocalApi);
+  if (demoBox) demoBox.style.display = showDemo ? "block" : "none";
 
   async function doLogin() {
     const u = (userEl?.value || "").trim();
