@@ -401,6 +401,16 @@
     return false;
   }
 
+  function dedupeProductsById(list = []) {
+    const map = new Map();
+    list.forEach((p) => {
+      const id = String(p?.id || "").trim();
+      if (!id) return;
+      map.set(id, p);
+    });
+    return Array.from(map.values());
+  }
+
   async function pushAllProductsToApi() {
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (!enabled) {
@@ -412,8 +422,14 @@
       return false;
     }
 
-    const local = loadSavedProductsArray();
-    if (!Array.isArray(local) || local.length === 0) {
+    const localRaw = loadSavedProductsArray();
+    const local = dedupeProductsById(Array.isArray(localRaw) ? localRaw : []);
+    if (local.length !== localRaw.length) {
+      saveSavedProductsArray(local.slice());
+      renderListProducts();
+      updateStats();
+    }
+    if (!local.length) {
       showToast("No hay productos para publicar");
       return false;
     }
@@ -443,6 +459,7 @@
             body: JSON.stringify(payload),
           });
           created++;
+          existing.add(id);
         }
       }
 

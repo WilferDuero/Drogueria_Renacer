@@ -243,6 +243,39 @@ app.post("/products", authRequired, async (req, res) => {
   const externalId = p.externalId || p.id || null;
 
   const db = await dbPromise;
+  if (externalId) {
+    const existing = await db.get("SELECT id FROM products WHERE externalId = ?", [externalId]);
+    if (existing && existing.id) {
+      await db.run(
+        `
+        UPDATE products SET
+          nombre = ?, descripcion = ?, categoria = ?, disponibilidad = ?, imagen = ?,
+          precioCaja = ?, precioSobre = ?, precioUnidad = ?, sobresXCaja = ?, unidadesXSobre = ?, stockCajas = ?,
+          ofertaActiva = ?, ofertaTexto = ?, ofertaPrecioCaja = ?, ofertaPrecioSobre = ?, updatedAt = CURRENT_TIMESTAMP
+        WHERE externalId = ?
+        `,
+        [
+          p.nombre || "",
+          p.descripcion || "",
+          p.categoria || "",
+          p.disponibilidad || "Disponible",
+          p.imagen || "",
+          toNumber(p.precioCaja),
+          toNumber(p.precioSobre),
+          toNumber(p.precioUnidad),
+          toInt(p.sobresXCaja),
+          toInt(p.unidadesXSobre),
+          toInt(p.stockCajas),
+          toBoolInt(p.ofertaActiva),
+          p.ofertaTexto || "",
+          toNumber(p.ofertaPrecioCaja),
+          toNumber(p.ofertaPrecioSobre),
+          externalId,
+        ]
+      );
+      return res.json({ id: existing.id, updated: true });
+    }
+  }
   const result = await db.run(
     `
     INSERT INTO products
