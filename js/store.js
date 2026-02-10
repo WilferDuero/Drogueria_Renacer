@@ -18,6 +18,15 @@ const btnSyncStore = document.getElementById("btnSyncStore");
 const btnApiConfigStore = document.getElementById("btnApiConfigStore");
 const STORE_ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
 
+// Modal detalle producto
+const productModal = document.getElementById("productModal");
+const productModalImg = document.getElementById("productModalImg");
+const productModalName = document.getElementById("productModalName");
+const productModalDesc = document.getElementById("productModalDesc");
+const productModalPrices = document.getElementById("productModalPrices");
+const productModalCategory = document.getElementById("productModalCategory");
+const closeProductModal = document.getElementById("closeProductModal");
+
 
 const OFFERS_PAGE_SIZE = 6;
 let offersPage = 1;
@@ -409,6 +418,58 @@ if (offersNext) {
   });
 }
 
+/* ==========================================================
+  Modal detalle producto
+========================================================== */
+function addPriceRow(label, value) {
+  if (!productModalPrices) return;
+  const row = document.createElement("div");
+  row.className = "product-price-row";
+  row.innerHTML = `<span>${label}</span><span>${formatCOP(value)}</span>`;
+  productModalPrices.appendChild(row);
+}
+
+function openProductModal(prod) {
+  if (!productModal) return;
+  if (productModalImg) {
+    productModalImg.src = prod?.imagen || "https://via.placeholder.com/400";
+    productModalImg.alt = prod?.nombre || "Producto";
+  }
+  if (productModalName) productModalName.textContent = prod?.nombre || "Producto";
+  if (productModalDesc) {
+    productModalDesc.textContent = prod?.descripcion || "Sin descripción.";
+  }
+  if (productModalCategory) {
+    const cat = (prod?.categoria || "").trim();
+    productModalCategory.textContent = cat || "Sin categoría";
+    productModalCategory.style.display = cat ? "inline-flex" : "none";
+  }
+
+  if (productModalPrices) {
+    productModalPrices.innerHTML = "";
+    if ((Number(prod?.precioCaja) || 0) > 0) addPriceRow("Caja", Number(prod.precioCaja));
+    if ((Number(prod?.precioSobre) || 0) > 0) addPriceRow("Sobre", Number(prod.precioSobre));
+    if ((Number(prod?.precioUnidad) || 0) > 0) addPriceRow("Unidad", Number(prod.precioUnidad));
+    if (!productModalPrices.children.length) {
+      const row = document.createElement("div");
+      row.className = "product-price-row";
+      row.innerHTML = `<span>Precio</span><span>No disponible</span>`;
+      productModalPrices.appendChild(row);
+    }
+  }
+
+  openModal("productModal");
+}
+
+closeProductModal?.addEventListener("click", () => closeModal("productModal"));
+productModal?.addEventListener("click", (e) => {
+  if (e.target === productModal) closeModal("productModal");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && productModal && !productModal.classList.contains("hidden")) {
+    closeModal("productModal");
+  }
+});
 
 /* ==========================================================
   Render normal productos (grid principal)
@@ -432,7 +493,7 @@ function renderProducts(list) {
     const stockBajo = stockCajas > 0 && stockCajas <= STOCK_BAJO_LIMIT;
 
     const card = document.createElement("article");
-    card.className = "card";
+    card.className = "card product-card";
 
     const imgWrap = document.createElement("div");
     imgWrap.style.position = "relative";
@@ -524,6 +585,11 @@ function renderProducts(list) {
     card.appendChild(h);
     card.appendChild(desc);
     card.appendChild(actions);
+
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button")) return;
+      openProductModal(p);
+    });
     productsGrid.appendChild(card);
   });
 }

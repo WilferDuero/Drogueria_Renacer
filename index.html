@@ -17,7 +17,7 @@
   <link rel="canonical" href="https://drogueria-renacer.vercel.app/" />
   <link rel="preconnect" href="https://i.ibb.co" />
   <link rel="preconnect" href="https://r2cdn.perplexity.ai" crossorigin />
-  <link rel="stylesheet" href="style.css?v=20260208b" />
+  <link rel="stylesheet" href="style.css?v=20260210g" />
 </head>
 
 <body>
@@ -412,6 +412,26 @@
     </div>
   </div>
 
+  <!-- ✅ Modal detalle producto -->
+  <div id="productModal" class="cart-modal hidden" aria-hidden="true">
+    <div class="cart-panel product-panel" style="max-width: 760px;">
+      <button id="closeProductModal" class="close-x" aria-label="Cerrar detalle">×</button>
+      <div class="product-modal">
+        <div class="product-modal-media">
+          <img id="productModalImg" src="" alt="Producto">
+        </div>
+        <div class="product-modal-content">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h3 id="productModalName" style="margin:0;">Producto</h3>
+            <span id="productModalCategory" class="product-modal-category">Categoría</span>
+          </div>
+          <p id="productModalDesc" class="product-modal-desc">Sin descripción.</p>
+          <div id="productModalPrices" class="product-modal-prices"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ✅ Botón flotante WhatsApp -->
   <a class="wa-float" href="https://wa.me/573133585508" target="_blank" aria-label="WhatsApp Droguería Renacer">
     <span class="wa-ico">💬</span>
@@ -461,7 +481,7 @@
   </footer>
 
   <!-- ✅ JS con defer y orden correcto -->
-  <script defer src="js/core.js?v=20260210d"></script>
-  <script defer src="js/store.js?v=20260210d"></script>
+  <script defer src="js/core.js?v=20260210g"></script>
+  <script defer src="js/store.js?v=20260210g"></script>
 </body>
 </html>
