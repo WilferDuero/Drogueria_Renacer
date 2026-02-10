@@ -69,13 +69,15 @@ async function trySyncProductsFromApi() {
   return false;
 }
 
-async function trySyncOrdersFromApi() {
+async function trySyncOrdersFromApi(phoneDigits) {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled) return false;
   if (!localStorage.getItem(STORE_ADMIN_TOKEN_KEY)) return false;
   if (typeof syncOrdersFromApi !== "function") return false;
+  const phone = normPhoneDigits(phoneDigits || "");
+  if (!phone) return false;
   try {
-    const synced = await syncOrdersFromApi();
+    const synced = await syncOrdersFromApi({ phoneDigits: phone });
     return !!synced;
   } catch (e) {
     console.warn("syncOrdersFromApi error:", e);
@@ -121,9 +123,11 @@ async function handleStoreSync() {
     return;
   }
   showToast("Sincronizando...");
+  const saved = typeof loadCustomer === "function" ? loadCustomer() : {};
+  const phone = normPhoneDigits(saved?.telefono || "");
   const [pSynced, oSynced, rSynced] = await Promise.all([
     trySyncProductsFromApi(),
-    trySyncOrdersFromApi(),
+    trySyncOrdersFromApi(phone),
     trySyncReviewsFromApi(),
   ]);
   if (pSynced) {
@@ -971,7 +975,11 @@ function renderMyOrders() {
       openModal("myOrdersModal");
 
       await retryUnsyncedOrders();
-      const synced = await trySyncOrdersFromApi();
+      let phoneForSync = normPhoneDigits(phoneInput?.value || "");
+      if (!phoneForSync && onlyMineChk?.checked) {
+        phoneForSync = normPhoneDigits(saved.telefono || "");
+      }
+      const synced = await trySyncOrdersFromApi(phoneForSync);
       if (synced) {
         updateMyOrdersCount();
         renderMyOrders();
@@ -982,7 +990,8 @@ function renderMyOrders() {
   closeBtn?.addEventListener("click", () => closeModal("myOrdersModal"));
   refreshBtn?.addEventListener("click", async () => {
     await retryUnsyncedOrders();
-    await trySyncOrdersFromApi();
+    const phoneForSync = normPhoneDigits(phoneInput?.value || "");
+    await trySyncOrdersFromApi(phoneForSync);
     updateMyOrdersCount();
     renderMyOrders();
   });
@@ -1228,7 +1237,9 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
   }
 
   await retryUnsyncedOrders();
-  await trySyncOrdersFromApi();
+  const savedCustomer = typeof loadCustomer === "function" ? loadCustomer() : {};
+  const phoneForSync = normPhoneDigits(savedCustomer?.telefono || "");
+  await trySyncOrdersFromApi(phoneForSync);
 })();
 
 /* Reviews init */

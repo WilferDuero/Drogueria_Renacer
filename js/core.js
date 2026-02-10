@@ -189,17 +189,20 @@ async function apiMe() {
 
 function normalizeApiOrder(o) {
   const items = Array.isArray(o?.items) ? o.items : [];
+  const nombre = o?.clienteNombre || o?.clientenombre || "";
+  const telefono = o?.clienteTelefono || o?.clientetelefono || "";
+  const direccion = o?.clienteDireccion || o?.clientedireccion || "";
   return {
     id: o?.externalId || String(o?.id || ""),
     cliente: {
-      nombre: o?.clienteNombre || "",
-      telefono: o?.clienteTelefono || "",
-      direccion: o?.clienteDireccion || "",
+      nombre,
+      telefono,
+      direccion,
     },
     items,
     total: Number(o?.total) || 0,
     estado: o?.estado || "pendiente",
-    fechaISO: o?.createdAt || nowISO(),
+    fechaISO: o?.createdAt || o?.createdat || nowISO(),
     synced: true,
     motivoRechazo: "",
     itemsAceptados: [],
@@ -278,13 +281,22 @@ async function apiCreateOrder(order) {
 
 async function syncOrdersFromApi(options = {}) {
   const allowEmpty = !!options.allowEmpty;
+  const phoneFilter = normPhoneDigits(options.phoneDigits || "");
   try {
     const list = await apiFetch("/orders");
     if (Array.isArray(list)) {
-      const local = loadOrders();
+      let local = loadOrders();
+      if (phoneFilter) {
+        local = local.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phoneFilter);
+      }
       if (!allowEmpty && list.length === 0 && local.length > 0) return null;
 
-      const normalized = list.map(normalizeApiOrder);
+      let normalized = list.map(normalizeApiOrder);
+      if (phoneFilter) {
+        normalized = normalized.filter(
+          (o) => normPhoneDigits(o?.cliente?.telefono) === phoneFilter
+        );
+      }
       const localMap = new Map(local.map((o) => [o.id, o]));
       const apiIds = new Set();
 
