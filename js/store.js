@@ -842,7 +842,11 @@ function updateMyOrdersCount() {
   const badge = document.getElementById("myOrdersCount");
   if (!badge) return;
   const orders = loadOrders();
-  badge.textContent = String(orders.length);
+  const saved = typeof loadCustomer === "function" ? loadCustomer() : {};
+  const phone = normPhoneDigits(saved?.telefono || "");
+  const hasAdminToken = !!localStorage.getItem(STORE_ADMIN_TOKEN_KEY);
+  const filtered = phone ? orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phone) : orders;
+  badge.textContent = String(hasAdminToken && !phone ? 0 : filtered.length);
 }
 
 function buildClientOrderCard(order) {
@@ -932,12 +936,18 @@ function renderMyOrders() {
 
   const savedCustomer = loadCustomer();
   const savedPhone = normPhoneDigits(savedCustomer.telefono || "");
+  const hasAdminToken = !!localStorage.getItem(STORE_ADMIN_TOKEN_KEY);
 
   let phoneToUse = normPhoneDigits(phoneInput?.value || "");
   if (onlyMineChk?.checked && !phoneToUse && savedPhone) phoneToUse = savedPhone;
 
   let orders = loadOrders();
   if (filter !== "all") orders = orders.filter((o) => String(o.estado) === filter);
+
+  if (hasAdminToken && !phoneToUse) {
+    list.innerHTML = `<div class="box"><p class="muted" style="margin:0;">Escribe tu teléfono o activa “Solo mis pedidos” para ver tus pedidos.</p></div>`;
+    return;
+  }
 
   if (onlyMineChk?.checked || phoneToUse) {
     orders = orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phoneToUse);

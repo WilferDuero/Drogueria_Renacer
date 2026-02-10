@@ -412,7 +412,35 @@ async function apiClearSales() {
 async function syncSalesFromApi() {
   try {
     const list = await apiFetch("/sales");
-    if (Array.isArray(list)) return list;
+    if (Array.isArray(list)) {
+      const normalized = list.map((v) => {
+        const refId = v?.refId || v?.refid || "";
+        const userId = v?.userId || v?.userid || null;
+        const userName = v?.userName || v?.username || v?.user_name || "";
+        const clienteNombre = v?.clienteNombre || v?.clientenombre || v?.cliente?.nombre || "";
+        const clienteTelefono = v?.clienteTelefono || v?.clientetelefono || v?.cliente?.telefono || "";
+        const clienteDireccion = v?.clienteDireccion || v?.clientedireccion || v?.cliente?.direccion || "";
+        const fechaISO =
+          v?.fechaISO || v?.fechaiso || v?.fechaIso || v?.createdAt || v?.createdat || nowISO();
+        const items = Array.isArray(v?.items) ? v.items : [];
+        return {
+          refId,
+          userId,
+          userName,
+          cliente: {
+            nombre: clienteNombre,
+            telefono: clienteTelefono,
+            direccion: clienteDireccion,
+          },
+          total: Number(v?.total) || 0,
+          items,
+          metodoPago: v?.metodoPago || v?.metodopago || "",
+          fechaISO,
+          fecha: v?.fecha || new Date(fechaISO).toLocaleString("es-CO"),
+        };
+      });
+      return normalized;
+    }
   } catch (e) {}
   return null;
 }
