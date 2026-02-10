@@ -192,8 +192,10 @@ function normalizeApiOrder(o) {
   const nombre = o?.clienteNombre || o?.clientenombre || "";
   const telefono = o?.clienteTelefono || o?.clientetelefono || "";
   const direccion = o?.clienteDireccion || o?.clientedireccion || "";
+  const externalId = o?.externalId || o?.externalid || "";
   return {
-    id: o?.externalId || String(o?.id || ""),
+    id: externalId || String(o?.id || ""),
+    externalId: externalId || null,
     cliente: {
       nombre,
       telefono,
@@ -333,7 +335,7 @@ async function syncOrdersFromApi(options = {}) {
 }
 
 async function apiUpdateOrderStatus(order) {
-  const externalId = order?.id || "";
+  const externalId = order?.externalId || order?.id || "";
   if (!externalId) return null;
   return apiFetch(`/orders/external/${encodeURIComponent(externalId)}/status`, {
     method: "PUT",
