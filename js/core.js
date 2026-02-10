@@ -356,6 +356,10 @@ async function apiCreateReview(review) {
   return apiFetch("/reviews", { method: "POST", body: JSON.stringify(payload) });
 }
 
+async function apiClearReviews() {
+  return apiFetch("/reviews", { method: "DELETE" });
+}
+
 async function syncReviewsFromApi(options = {}) {
   const allowEmpty = !!options.allowEmpty;
   try {
@@ -379,16 +383,8 @@ async function syncReviewsFromApi(options = {}) {
         verified: !!r?.verificada,
         fechaISO: r?.createdAt || r?.createdat || nowISO(),
       }));
-
-      const key = (r) => `${r.telefonoDigits || ""}|${r.texto || ""}|${r.fechaISO || ""}`;
-      const apiKeys = new Set(normalized.map(key));
-      const merged = normalized.slice();
-      (Array.isArray(local) ? local : []).forEach((r) => {
-        if (!apiKeys.has(key(r))) merged.push(r);
-      });
-
-      localStorage.setItem(REVIEWS_KEY, JSON.stringify(merged));
-      return merged;
+      localStorage.setItem(REVIEWS_KEY, JSON.stringify(normalized));
+      return normalized;
     }
   } catch (e) {}
   return null;
@@ -1428,6 +1424,7 @@ window.syncOrdersFromApi = syncOrdersFromApi;
 window.apiUpdateOrderStatus = apiUpdateOrderStatus;
 window.apiClearOrders = apiClearOrders;
 window.apiCreateReview = apiCreateReview;
+window.apiClearReviews = apiClearReviews;
 window.syncReviewsFromApi = syncReviewsFromApi;
 window.apiCreateSale = apiCreateSale;
 window.apiClearSales = apiClearSales;

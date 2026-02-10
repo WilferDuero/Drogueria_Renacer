@@ -90,7 +90,7 @@ async function trySyncReviewsFromApi() {
   if (!enabled) return false;
   if (typeof syncReviewsFromApi !== "function") return false;
   try {
-    const synced = await syncReviewsFromApi();
+    const synced = await syncReviewsFromApi({ allowEmpty: true });
     if (synced) {
       renderReviews();
       return true;

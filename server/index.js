@@ -600,6 +600,12 @@ app.post("/reviews", async (req, res) => {
   res.json({ id: result.lastID });
 });
 
+app.delete("/reviews", authRequired, ownerOnly, async (_req, res) => {
+  const db = await dbPromise;
+  await db.run("DELETE FROM reviews");
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`API lista en http://localhost:${PORT}`);
 });

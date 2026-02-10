@@ -111,6 +111,7 @@
   const btnExportVentas = document.getElementById("btnExportVentas");
   const btnLimpiarVentas = document.getElementById("btnLimpiarVentas");
   const btnClearVentas = document.getElementById("btnClearVentas");
+  const btnClearReviews = document.getElementById("btnClearReviews");
   const backupInfoSales = document.getElementById("backupInfoSales");
 
   // Pedidos
@@ -1264,6 +1265,20 @@
   btnClearVentas?.addEventListener("click", async () => {
     if (!confirm("¿Limpiar ventas (pruebas)?")) return;
     await clearSalesEverywhere("🧹 Ventas (pruebas) borradas");
+  });
+
+  btnClearReviews?.addEventListener("click", async () => {
+    if (!confirm("¿Borrar TODAS las reseñas en todos los dispositivos?")) return;
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (enabled && typeof apiClearReviews === "function") {
+      try {
+        await apiClearReviews();
+      } catch (e) {
+        console.warn("apiClearReviews error:", e);
+      }
+    }
+    localStorage.removeItem(REVIEWS_KEY);
+    showToast("🧹 Reseñas borradas");
   });
 
   /* ==========================================================
