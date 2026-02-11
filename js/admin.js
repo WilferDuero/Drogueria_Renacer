@@ -1743,6 +1743,18 @@
   checkApiHealth();
   updateBackupLabels();
   ensureAuthUser();
+
+  /* ==========================================================
+    ✅ Auto-sync (polling suave) para pedidos y ventas
+  ========================================================== */
+  const ADMIN_POLL_MS = 20000;
+  setInterval(async () => {
+    const enabled = localStorage.getItem("API_ENABLED") !== "false";
+    if (!enabled) return;
+    if (document.visibilityState === "hidden") return;
+    await trySyncOrdersFromApi();
+    await trySyncSalesFromApi();
+  }, ADMIN_POLL_MS);
 })();
 
 // Tip semanal: exportar para respaldo (solo 1 vez por semana)
