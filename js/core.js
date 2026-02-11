@@ -278,7 +278,7 @@ async function apiCreateOrder(order) {
     total: order.total || 0,
     estado: order.estado || "pendiente",
   };
-  return apiFetch("/orders", { method: "POST", body: JSON.stringify(payload) });
+  return apiFetch("/orders", { method: "POST", body: JSON.stringify(payload), keepalive: true });
 }
 
 async function syncOrdersFromApi(options = {}) {

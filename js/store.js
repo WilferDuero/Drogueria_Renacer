@@ -798,6 +798,38 @@ async function retryUnsyncedOrders() {
   return okCount;
 }
 
+function buildOrderApiPayload(order) {
+  return {
+    externalId: order.id,
+    clienteNombre: order?.cliente?.nombre || "",
+    clienteTelefono: order?.cliente?.telefono || "",
+    clienteDireccion: order?.cliente?.direccion || "",
+    items: order.items || [],
+    total: order.total || 0,
+    estado: order.estado || "pendiente",
+  };
+}
+
+function trySendOrderBeacon(order) {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) return false;
+  if (!("sendBeacon" in navigator)) return false;
+  const base =
+    localStorage.getItem("API_BASE") ||
+    (typeof API_BASE === "string" ? API_BASE : "") ||
+    "";
+  const trimmed = String(base).trim();
+  if (!trimmed) return false;
+  const url = trimmed.replace(/\/$/, "") + "/orders";
+  try {
+    const payload = buildOrderApiPayload(order);
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    return navigator.sendBeacon(url, blob);
+  } catch (e) {
+    return false;
+  }
+}
+
 /* ==========================================================
   Enviar pedido WhatsApp (cliente)
 ========================================================== */
@@ -824,6 +856,10 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
 
   const order = createPendingOrderFromCart(cliente);
   if (!order) return;
+
+  // intento rápido vía beacon (más confiable si el navegador cambia de app)
+  trySendOrderBeacon(order);
+  scheduleOrderSync("send");
 
   // ✅ intenta enviar al backend (no bloquea)
   if (typeof apiCreateOrder === "function") {
