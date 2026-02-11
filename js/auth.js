@@ -9,6 +9,8 @@
   const errEl = document.getElementById("loginError");
   const demoBox = document.getElementById("demoCredentials");
   const togglePass = document.getElementById("togglePass");
+  const apiBtn = document.getElementById("apiConfigBtn");
+  const apiStatus = document.getElementById("apiStatus");
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
   const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
@@ -22,6 +24,33 @@
   const looksLocalApi = /localhost|127\.0\.0\.1/i.test(apiBase);
   const showDemo = DEMO_MODE && (isFile || isLocalHost || looksLocalApi);
   if (demoBox) demoBox.style.display = showDemo ? "block" : "none";
+  const DEFAULT_API_BASE = "https://drogueria-renacer.onrender.com";
+
+  function updateApiStatus() {
+    if (!apiStatus) return;
+    const base = localStorage.getItem("API_BASE") || "";
+    const enabled = localStorage.getItem("API_ENABLED") !== "false" && !!base;
+    const label = enabled ? "API activa" : "API desactivada";
+    apiStatus.textContent = base ? `${label}: ${base}` : `${label}: sin URL`;
+  }
+
+  function configureApi() {
+    const current = localStorage.getItem("API_BASE") || DEFAULT_API_BASE;
+    const base = prompt("URL del backend (API_BASE):", current);
+    if (base === null) return;
+    const trimmed = String(base).trim();
+    if (!trimmed) {
+      localStorage.removeItem("API_BASE");
+      localStorage.setItem("API_ENABLED", "false");
+      updateApiStatus();
+      showToast("API desactivada");
+      return;
+    }
+    localStorage.setItem("API_BASE", trimmed);
+    localStorage.setItem("API_ENABLED", "true");
+    updateApiStatus();
+    showToast("API configurada");
+  }
 
   async function doLogin() {
     const u = (userEl?.value || "").trim();
@@ -64,6 +93,8 @@
   });
 
   btnEl?.addEventListener("click", doLogin);
+  apiBtn?.addEventListener("click", configureApi);
+  updateApiStatus();
 
   if (togglePass && passEl) {
     togglePass.addEventListener("click", () => {
