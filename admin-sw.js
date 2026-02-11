@@ -1,13 +1,13 @@
-const CACHE_NAME = "admin-pwa-v17";
+const CACHE_NAME = "admin-pwa-v18";
 const ASSETS = [
   "/admin_login.html",
   "/admin.html",
   "/manifest-admin.json",
-  "/style.css?v=20260210e",
-  "/js/core.js?v=20260210e",
-  "/js/auth.js?v=20260210e",
-  "/js/admin.js?v=20260210e",
-  "/js/admin_pwa.js?v=20260210e",
+  "/style.css?v=20260211a",
+  "/js/core.js?v=20260211a",
+  "/js/auth.js?v=20260211a",
+  "/js/admin.js?v=20260211a",
+  "/js/admin_pwa.js?v=20260211a",
   "/assets/payments/Logo_Drogueria.svg",
   "/assets/payments/Logo_Coopidrogas.svg"
 ];
