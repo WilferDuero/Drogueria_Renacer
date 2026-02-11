@@ -94,6 +94,44 @@ async function trySyncOrdersFromApi(phoneDigits) {
   return false;
 }
 
+/* ==========================================================
+  ✅ Auto-sync pedidos (evita que el admin espere a "Mis pedidos")
+========================================================== */
+const ORDER_SYNC_DELAYS = [4000, 12000, 25000, 45000];
+let orderSyncTimer = null;
+let orderSyncAttempt = 0;
+
+function hasUnsyncedOrders() {
+  const orders = loadOrders();
+  return orders.some((o) => o && o.synced === false);
+}
+
+function scheduleOrderSync(reason = "") {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled) return;
+  if (!hasUnsyncedOrders()) {
+    orderSyncAttempt = 0;
+    return;
+  }
+  if (orderSyncTimer) return;
+
+  const delay =
+    ORDER_SYNC_DELAYS[Math.min(orderSyncAttempt, ORDER_SYNC_DELAYS.length - 1)];
+  orderSyncAttempt += 1;
+
+  orderSyncTimer = setTimeout(async () => {
+    orderSyncTimer = null;
+    try {
+      await retryUnsyncedOrders();
+    } catch {}
+    if (hasUnsyncedOrders()) {
+      scheduleOrderSync("retry");
+    } else {
+      orderSyncAttempt = 0;
+    }
+  }, delay);
+}
+
 async function trySyncReviewsFromApi() {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled) return false;
@@ -794,6 +832,7 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
       .catch((e) => {
         console.warn("apiCreateOrder error:", e);
         markOrderSyncStatus(order.id, false);
+        scheduleOrderSync("send-failed");
       });
   }
 
@@ -1316,6 +1355,7 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
   const savedCustomer = typeof loadCustomer === "function" ? loadCustomer() : {};
   const phoneForSync = normPhoneDigits(savedCustomer?.telefono || "");
   await trySyncOrdersFromApi(phoneForSync);
+  if (hasUnsyncedOrders()) scheduleOrderSync("init");
 })();
 
 /* Reviews init */
