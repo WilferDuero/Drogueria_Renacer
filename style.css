@@ -557,6 +557,7 @@ textarea { resize: vertical; }
 .login-footer { text-align: center; margin-top: 14px; }
 .login-footer a { color: var(--color-primary); font-weight: 600; }
 .login-footer a:hover { text-decoration: underline; }
+.login-api { display: grid; gap: 8px; margin-top: 12px; }
 
 .login-error {
   display: none;

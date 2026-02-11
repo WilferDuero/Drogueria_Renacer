@@ -10,6 +10,7 @@
   const demoBox = document.getElementById("demoCredentials");
   const togglePass = document.getElementById("togglePass");
   const apiBtn = document.getElementById("apiConfigBtn");
+  const apiSyncBtn = document.getElementById("apiSyncBtn");
   const apiStatus = document.getElementById("apiStatus");
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
   const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
@@ -50,6 +51,27 @@
     localStorage.setItem("API_ENABLED", "true");
     updateApiStatus();
     showToast("API configurada");
+  }
+
+  async function syncApi() {
+    const base = (localStorage.getItem("API_BASE") || DEFAULT_API_BASE || "").trim();
+    if (!base) {
+      showToast("Configura la API primero");
+      return;
+    }
+    const url = base.replace(/\/$/, "") + "/health";
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      localStorage.setItem("API_BASE", base);
+      localStorage.setItem("API_ENABLED", "true");
+      updateApiStatus();
+      showToast("API OK");
+    } catch (e) {
+      localStorage.setItem("API_ENABLED", "false");
+      updateApiStatus();
+      showToast("API no disponible");
+    }
   }
 
   async function doLogin() {
@@ -94,6 +116,7 @@
 
   btnEl?.addEventListener("click", doLogin);
   apiBtn?.addEventListener("click", configureApi);
+  apiSyncBtn?.addEventListener("click", syncApi);
   updateApiStatus();
 
   if (togglePass && passEl) {
