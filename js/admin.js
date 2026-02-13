@@ -1,5 +1,5 @@
-﻿/* ==========================================================
-  admin.js â€” Panel Admin
+/* ==========================================================
+  admin.js — Panel Admin
   - CRUD productos
   - Ventas + recibos
   - Pedidos (aceptar parcial/total, rechazar, cancelar)
@@ -41,7 +41,7 @@
     return;
   }
 
-  // mantener sesiÃ³n viva con actividad
+  // mantener sesión viva con actividad
   ["click", "keydown", "mousemove", "touchstart"].forEach((evt) => {
     document.addEventListener(evt, touchSession, { passive: true });
   });
@@ -85,7 +85,7 @@
   const unidadesXSobreProducto = document.getElementById("unidadesXSobreProducto");
   const stockCajasProducto = document.getElementById("stockCajasProducto");
 
-  // âœ… Oferta (promo)
+  // ✅ Oferta (promo)
   const ofertaActivaProducto = document.getElementById("ofertaActivaProducto");
   const ofertaTextoProducto = document.getElementById("ofertaTextoProducto");
   const ofertaPrecioCajaProducto = document.getElementById("ofertaPrecioCajaProducto");
@@ -100,7 +100,7 @@
   const btnLimpiarLocal = document.getElementById("btnLimpiarLocal");
   const btnDescargarExcel = document.getElementById("btnDescargarExcel");
 
-  // âœ… Banner filtro stock bajo + tarjeta alertas
+  // ✅ Banner filtro stock bajo + tarjeta alertas
   const lowStockBanner = document.getElementById("lowStockBanner");
   const lowStockBannerText = document.getElementById("lowStockBannerText");
   const btnClearLowStockFilter = document.getElementById("btnClearLowStockFilter");
@@ -153,7 +153,7 @@
   function persistProducts() {
     saveSavedProductsArray(savedProducts);
 
-    // âœ… sincroniza con core (PRO)
+    // ✅ sincroniza con core (PRO)
     if (typeof window.setProducts === "function") {
       window.setProducts(savedProducts);
     }
@@ -244,21 +244,21 @@
   function updateApiLastSyncLabel() {
     if (!apiLastSyncEl) return;
     const ts = Number(localStorage.getItem(API_LAST_SYNC_KEY) || 0);
-    apiLastSyncEl.textContent = `Ãšltima sync: ${formatTime(ts)}`;
+    apiLastSyncEl.textContent = `Última sync: ${formatTime(ts)}`;
   }
 
   function updateBackupLabels() {
     if (backupInfoProducts) {
       const ts = Number(localStorage.getItem(BACKUP_PRODUCTS_KEY) || 0);
-      backupInfoProducts.textContent = `Ãšltimo respaldo: ${formatTime(ts)}`;
+      backupInfoProducts.textContent = `Último respaldo: ${formatTime(ts)}`;
     }
     if (backupInfoSales) {
       const ts = Number(localStorage.getItem(BACKUP_SALES_KEY) || 0);
-      backupInfoSales.textContent = `Ãšltimo respaldo: ${formatTime(ts)}`;
+      backupInfoSales.textContent = `Último respaldo: ${formatTime(ts)}`;
     }
     if (backupInfoOrders) {
       const ts = Number(localStorage.getItem(BACKUP_ORDERS_KEY) || 0);
-      backupInfoOrders.textContent = `Ãšltimo respaldo: ${formatTime(ts)}`;
+      backupInfoOrders.textContent = `Último respaldo: ${formatTime(ts)}`;
     }
   }
 
@@ -361,10 +361,10 @@
       updateApiLastSyncLabel();
       checkApiHealth();
     }
-    showToast(pSynced || oSynced || sSynced ? "âœ… Sincronizado" : "Sin cambios o sin API");
+    showToast(pSynced || oSynced || sSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
   }
 
-  // âœ… Sync con backend (opcional)
+  // ✅ Sync con backend (opcional)
   async function trySyncProductsFromApi() {
     if (typeof syncProductsFromApi !== "function") return false;
     try {
@@ -412,7 +412,7 @@
     return Array.from(map.values());
   }
 
-  function getProductsByItemRefs(items = []) {
+function getProductsByItemRefs(items = []) {
     const ids = new Set(
       (Array.isArray(items) ? items : [])
         .map((it) => String(it?.id || "").trim())
@@ -443,18 +443,18 @@
     const failed = results.length - synced;
 
     if (failed > 0) {
-      console.warn(`syncChangedProductsToApi (${reason}) fallo`, {
+      console.warn("syncChangedProductsToApi (" + reason + ") fallo", {
         failed,
         total: results.length,
       });
-      showToast(`⚠️ Stock local actualizado. API pendiente en ${failed} producto(s)`);
+      showToast("Stock local actualizado. API pendiente en " + failed + " producto(s)");
       return { ok: false, synced, total: results.length };
     }
 
     return { ok: true, synced, total: results.length };
   }
 
-  async function pushAllProductsToApi() {
+    async function pushAllProductsToApi() {
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (!enabled) {
       showToast("API desactivada");
@@ -506,12 +506,12 @@
         }
       }
 
-      showToast(`âœ… Productos publicados (${created} nuevos, ${updated} actualizados)`);
+      showToast(`✅ Productos publicados (${created} nuevos, ${updated} actualizados)`);
       trySyncProductsFromApi();
       return true;
     } catch (e) {
       console.warn("pushAllProductsToApi error:", e);
-      showToast("âŒ No se pudo publicar productos");
+      showToast("❌ No se pudo publicar productos");
       return false;
     }
   }
@@ -522,7 +522,7 @@
   function renderUsers(list = []) {
     if (!usersList) return;
     if (!isOwner) {
-      usersList.innerHTML = `<div class="muted">Solo el dueÃ±o puede ver usuarios.</div>`;
+      usersList.innerHTML = `<div class="muted">Solo el dueño puede ver usuarios.</div>`;
       return;
     }
 
@@ -562,7 +562,7 @@
             method: "PUT",
             body: JSON.stringify({ username }),
           });
-          showToast("âœ… Usuario actualizado");
+          showToast("✅ Usuario actualizado");
           if (currentUser?.id && String(currentUser.id) === String(id)) {
             const updated = { ...currentUser, username };
             localStorage.setItem(USER_KEY, JSON.stringify(updated));
@@ -570,7 +570,7 @@
           }
           loadUsers();
         } catch (e) {
-          alert("No se pudo actualizar el usuario. Â¿Ya existe?");
+          alert("No se pudo actualizar el usuario. ¿Ya existe?");
         }
       });
     });
@@ -585,7 +585,7 @@
             method: "PUT",
             body: JSON.stringify({ role }),
           });
-          showToast("âœ… Rol actualizado");
+          showToast("✅ Rol actualizado");
           loadUsers();
         } catch (e) {
           alert("No se pudo actualizar el rol.");
@@ -596,16 +596,16 @@
     usersList.querySelectorAll("[data-user-pass]").forEach((b) => {
       b.addEventListener("click", async () => {
         const id = b.getAttribute("data-user-pass");
-        const pass = prompt("Nueva contraseÃ±a:");
+        const pass = prompt("Nueva contraseña:");
         if (!pass) return;
         try {
           await apiFetch(`/users/${encodeURIComponent(id)}`, {
             method: "PUT",
             body: JSON.stringify({ password: pass }),
           });
-          showToast("âœ… ContraseÃ±a actualizada");
+          showToast("✅ Contraseña actualizada");
         } catch (e) {
-          alert("No se pudo actualizar la contraseÃ±a.");
+          alert("No se pudo actualizar la contraseña.");
         }
       });
     });
@@ -627,7 +627,7 @@
     const username = (userUsername?.value || "").trim();
     const password = (userPassword?.value || "").trim();
     const role = (userRole?.value || "staff").trim();
-    if (!username || !password) return alert("Usuario y contraseÃ±a son obligatorios.");
+    if (!username || !password) return alert("Usuario y contraseña son obligatorios.");
 
     try {
       await apiFetch("/users", {
@@ -637,14 +637,14 @@
       if (userUsername) userUsername.value = "";
       if (userPassword) userPassword.value = "";
       if (userRole) userRole.value = "staff";
-      showToast("âœ… Usuario creado");
+      showToast("✅ Usuario creado");
       loadUsers();
     } catch (e) {
-      alert("No se pudo crear el usuario. Â¿Ya existe?");
+      alert("No se pudo crear el usuario. ¿Ya existe?");
     }
   });
 
-  // âœ… Mostrar productos con stock bajo (ADMIN)
+  // ✅ Mostrar productos con stock bajo (ADMIN)
   window.showLowStockModal = function () {
     onlyLowStockMode = true;
 
@@ -654,7 +654,7 @@
     showTab("lista");
     renderListProducts();
 
-    showToast("ðŸš¨ Mostrando productos con stock bajo");
+    showToast("🚨 Mostrando productos con stock bajo");
   };
 
   /* ==========================================================
@@ -697,7 +697,7 @@
   tabBtns.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
   btnPushProductsAdmin?.addEventListener("click", async () => {
-    if (!confirm("Â¿Publicar todos los productos al servidor?")) return;
+    if (!confirm("¿Publicar todos los productos al servidor?")) return;
     await pushAllProductsToApi();
   });
 
@@ -728,11 +728,11 @@
     if (!input || !enabled) return;
 
     const trimmed = String(input.value || "").trim();
-    if (!trimmed) return alert("URL invÃ¡lida.");
+    if (!trimmed) return alert("URL inválida.");
 
     localStorage.setItem("API_BASE", trimmed);
     localStorage.setItem("API_ENABLED", enabled.checked ? "true" : "false");
-    showToast(enabled.checked ? "âœ… API activada" : "âš ï¸ API desactivada");
+    showToast(enabled.checked ? "✅ API activada" : "⚠️ API desactivada");
     closeModal("apiConfigModal");
     setTimeout(() => window.location.reload(), 300);
   });
@@ -752,7 +752,7 @@
     const precioUnidad = Math.max(0, parsePriceInput(precioUnidadProducto.value));
 
     if (precioCaja === 0 && precioSobre === 0 && precioUnidad === 0) {
-      const ok = confirm("Todos los precios estÃ¡n en 0. Â¿Guardar igual?");
+      const ok = confirm("Todos los precios están en 0. ¿Guardar igual?");
       if (!ok) return null;
     }
 
@@ -778,15 +778,15 @@
 
   btnAgregar?.addEventListener("click", () => {
     const p = getProductFromForm();
-    if (!p) return; // âœ… IMPORTANTÃSIMO: antes de tocar p.*
+    if (!p) return; // ✅ IMPORTANTÍSIMO: antes de tocar p.*
 
-    // âœ… oferta manual (promo real)
+    // ✅ oferta manual (promo real)
     p.ofertaActiva = !!ofertaActivaProducto?.checked;
     p.ofertaTexto = (ofertaTextoProducto?.value || "").trim();
     p.ofertaPrecioCaja = Math.max(0, parsePriceInput(ofertaPrecioCajaProducto?.value || 0));
     p.ofertaPrecioSobre = Math.max(0, parsePriceInput(ofertaPrecioSobreProducto?.value || 0));
 
-    // âœ… Guardar historial SOLO si bajÃ³ (no â€œanunciamosâ€ subidas)
+    // ✅ Guardar historial SOLO si bajó (no “anunciamos” subidas)
     if (editingIdx >= 0) {
       const prev = savedProducts[editingIdx] || null;
       if (prev) {
@@ -808,13 +808,13 @@
           p.priceChangedISO = prev.priceChangedISO || "";
         }
 
-        // âœ… si no existÃ­an campos en un producto viejo, inicialÃ­zalos
+        // ✅ si no existían campos en un producto viejo, inicialízalos
         if (prev.prevPrecioCaja == null && p.prevPrecioCaja == null) p.prevPrecioCaja = 0;
         if (prev.prevPrecioSobre == null && p.prevPrecioSobre == null) p.prevPrecioSobre = 0;
         if (prev.priceChangedISO == null && p.priceChangedISO == null) p.priceChangedISO = "";
       }
     } else {
-      // Nuevo producto: no hay â€œprevâ€
+      // Nuevo producto: no hay “prev”
       p.prevPrecioCaja = 0;
       p.prevPrecioSobre = 0;
       p.priceChangedISO = "";
@@ -824,15 +824,15 @@
 
     if (editingIdx >= 0) {
       savedProducts[editingIdx] = p;
-      showToast("âœ… Producto actualizado");
+      showToast("✅ Producto actualizado");
     } else {
       savedProducts.unshift(p);
-      showToast("âœ… Producto agregado");
+      showToast("✅ Producto agregado");
     }
 
     persistProducts();
 
-    // âœ… enviar al backend (no bloquea)
+    // ✅ enviar al backend (no bloquea)
     if (typeof apiUpsertProduct === "function") {
       apiUpsertProduct(p, isUpdate).catch((e) => console.warn("apiUpsertProduct error:", e));
     }
@@ -844,7 +844,7 @@
 
   btnCancelarEdicion?.addEventListener("click", () => {
     resetForm();
-    showToast("EdiciÃ³n cancelada");
+    showToast("Edición cancelada");
   });
 
   /* ==========================================================
@@ -861,10 +861,10 @@
 
     const badge =
       stockCajas <= 0
-        ? `<span class="pill" style="background:#fef2f2;border-color:#fecaca;">ðŸš« Sin stock</span>`
+        ? `<span class="pill" style="background:#fef2f2;border-color:#fecaca;">🚫 Sin stock</span>`
         : stockBajo
-        ? `<span class="pill" style="background:#fef2f2;border-color:#fecaca;">ðŸš¨ Stock bajo</span>`
-        : `<span class="pill">âœ… OK</span>`;
+        ? `<span class="pill" style="background:#fef2f2;border-color:#fecaca;">🚨 Stock bajo</span>`
+        : `<span class="pill">✅ OK</span>`;
 
     return `
       <div class="box" style="display:flex;gap:12px;align-items:flex-start;">
@@ -879,26 +879,26 @@
               <div style="font-weight:900;">${escapeHTML(p.nombre)}</div>
               <div class="muted" style="font-size:12px;">${escapeHTML(p.descripcion || "")}</div>
               <div class="muted" style="font-size:12px;margin-top:6px;">
-                <span class="pill">ðŸ“‚ ${escapeHTML(p.categoria || "Otro")}</span>
-                <span class="pill">ðŸ“¦ ${escapeHTML(p.disponibilidad || "Disponible")}</span>
+                <span class="pill">📂 ${escapeHTML(p.categoria || "Otro")}</span>
+                <span class="pill">📦 ${escapeHTML(p.disponibilidad || "Disponible")}</span>
                 ${badge}
               </div>
             </div>
 
             <div style="display:flex;gap:8px;">
-              <button class="btn primary" data-edit="${idx}" type="button">âœï¸ Editar</button>
-              <button class="btn danger" data-del="${idx}" type="button">ðŸ—‘ï¸ Eliminar</button>
+              <button class="btn primary" data-edit="${idx}" type="button">✏️ Editar</button>
+              <button class="btn danger" data-del="${idx}" type="button">🗑️ Eliminar</button>
             </div>
           </div>
 
           <div style="margin-top:10px;font-size:13px;">
-            ${prices.length ? prices.join(" Â· ") : `<span class="muted">Sin precios</span>`}
+            ${prices.length ? prices.join(" · ") : `<span class="muted">Sin precios</span>`}
           </div>
 
           <div class="muted" style="font-size:12px;margin-top:8px;">
             <b>Stock cajas:</b> ${Number(p.stockCajas) || 0}
-            Â· Sobres/caja: ${Number(p.sobresXCaja) || 0}
-            Â· Unid/sobre: ${Number(p.unidadesXSobre) || 0}
+            · Sobres/caja: ${Number(p.sobresXCaja) || 0}
+            · Unid/sobre: ${Number(p.unidadesXSobre) || 0}
           </div>
         </div>
       </div>
@@ -913,7 +913,7 @@
 
     let list = savedProducts.slice();
 
-    // âœ… modo: solo stock bajo
+    // ✅ modo: solo stock bajo
     if (onlyLowStockMode) {
       list = list.filter((p) => (Number(p.stockCajas) || 0) <= STOCK_BAJO_LIMIT);
     }
@@ -927,11 +927,11 @@
       });
     }
 
-    // âœ… banner filtro activo
+    // ✅ banner filtro activo
     if (lowStockBanner && lowStockBannerText) {
       if (onlyLowStockMode) {
         lowStockBanner.style.display = "block";
-        lowStockBannerText.textContent = `ðŸš¨ Filtro activo: Stock Bajo (${list.length} producto(s))`;
+        lowStockBannerText.textContent = `🚨 Filtro activo: Stock Bajo (${list.length} producto(s))`;
       } else {
         lowStockBanner.style.display = "none";
       }
@@ -968,14 +968,14 @@
         const p = savedProducts[idx];
         if (!p) return;
 
-        if (!confirm(`Â¿Eliminar "${p.nombre}"?`)) return;
+        if (!confirm(`¿Eliminar "${p.nombre}"?`)) return;
         savedProducts.splice(idx, 1);
         persistProducts();
         if (typeof apiDeleteProduct === "function") {
           apiDeleteProduct(p.id).catch((e) => console.warn("apiDeleteProduct error:", e));
         }
         renderListProducts();
-        showToast("ðŸ—‘ï¸ Producto eliminado");
+        showToast("🗑️ Producto eliminado");
       });
     });
 
@@ -983,7 +983,7 @@
   }
 
   searchListaProductos?.addEventListener("input", (e) => {
-    onlyLowStockMode = false; // âœ… si empieza a buscar, vuelve a modo normal
+    onlyLowStockMode = false; // ✅ si empieza a buscar, vuelve a modo normal
     currentListFilter = e.target.value || "";
     renderListProducts();
   });
@@ -997,11 +997,11 @@
   });
 
   btnLimpiarLocal?.addEventListener("click", () => {
-    if (!confirm("Â¿Eliminar TODOS los productos?")) return;
+    if (!confirm("¿Eliminar TODOS los productos?")) return;
     savedProducts = [];
     persistProducts();
     renderListProducts();
-    showToast("ðŸ§¹ Productos eliminados");
+    showToast("🧹 Productos eliminados");
   });
 
   btnDescargarExcel?.addEventListener("click", () => {
@@ -1020,7 +1020,7 @@
         "unidadesXSobre",
         "stockCajas",
 
-        // âœ… NUEVO
+        // ✅ NUEVO
         "prevPrecioCaja",
         "prevPrecioSobre",
         "priceChangedISO",
@@ -1043,7 +1043,7 @@
         p.unidadesXSobre,
         p.stockCajas,
 
-        // âœ… NUEVO
+        // ✅ NUEVO
         p.prevPrecioCaja || 0,
         p.prevPrecioSobre || 0,
         p.priceChangedISO || "",
@@ -1055,7 +1055,7 @@
     ];
 
     downloadTextFile("productos_renacer.csv", toCSV(rows, ";"));
-    showToast("ðŸ“¥ Exportado: productos_renacer.csv");
+    showToast("📥 Exportado: productos_renacer.csv");
     localStorage.setItem(BACKUP_PRODUCTS_KEY, String(Date.now()));
     updateBackupLabels();
   });
@@ -1139,13 +1139,13 @@
           <div class="box" style="padding:14px;">
             <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
               <div>
-                <div style="font-weight:900;">ðŸ§¾ Venta</div>
+                <div style="font-weight:900;">🧾 Venta</div>
                 <div class="muted" style="font-size:12px;">${escapeHTML(v.fecha || "")}</div>
                 ${v.refId ? `<div class="muted" style="font-size:12px;">Ref: <b>${escapeHTML(v.refId)}</b></div>` : ""}
                 ${v.userName ? `<div class="muted" style="font-size:12px;">Vendedor: <b>${escapeHTML(v.userName)}</b></div>` : ""}
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                ${v.synced === false ? `<span class="pill" style="border-color:#f59e0b;">âš ï¸ Sin sync</span>` : ""}
+                ${v.synced === false ? `<span class="pill" style="border-color:#f59e0b;">⚠️ Sin sync</span>` : ""}
                 <div style="font-weight:900;font-size:14px;">${formatCOP(v.total || 0)}</div>
               </div>
             </div>
@@ -1169,8 +1169,8 @@
             </details>
 
             <div class="inline-row" style="margin-top:12px;">
-              <button class="btn ghost" data-receipt="${idx}" type="button">ðŸ–¨ï¸ Recibo</button>
-              <button class="btn whatsapp" data-wa="${idx}" type="button">ðŸ“² WhatsApp</button>
+              <button class="btn ghost" data-receipt="${idx}" type="button">🖨️ Recibo</button>
+              <button class="btn whatsapp" data-wa="${idx}" type="button">📲 WhatsApp</button>
             </div>
           </div>
         `;
@@ -1218,7 +1218,7 @@
 
         upsertReceipt(receipt);
         const tel = normPhoneDigits(receipt.cliente?.telefono || "");
-        if (!tel) return alert("Esta venta no tiene telÃ©fono del cliente.");
+        if (!tel) return alert("Esta venta no tiene teléfono del cliente.");
         sendReceiptToWhatsApp(receipt, tel);
       });
     });
@@ -1240,7 +1240,7 @@
       ]),
     ];
     downloadTextFile("ventas_renacer.csv", toCSV(rows, ";"));
-    showToast("ðŸ“¥ Exportado: ventas_renacer.csv");
+    showToast("📥 Exportado: ventas_renacer.csv");
     localStorage.setItem(BACKUP_SALES_KEY, String(Date.now()));
     updateBackupLabels();
   });
@@ -1279,7 +1279,7 @@
     ];
 
     downloadTextFile("pedidos_renacer.csv", toCSV(rows, ";"));
-    showToast("ðŸ“¥ Exportado: pedidos_renacer.csv");
+    showToast("📥 Exportado: pedidos_renacer.csv");
     localStorage.setItem(BACKUP_ORDERS_KEY, String(Date.now()));
     updateBackupLabels();
   });
@@ -1300,17 +1300,17 @@
   }
 
   btnLimpiarVentas?.addEventListener("click", async () => {
-    if (!confirm("Â¿Borrar historial de ventas?")) return;
-    await clearSalesEverywhere("ðŸ§¹ Ventas borradas");
+    if (!confirm("¿Borrar historial de ventas?")) return;
+    await clearSalesEverywhere("🧹 Ventas borradas");
   });
 
   btnClearVentas?.addEventListener("click", async () => {
-    if (!confirm("Â¿Limpiar ventas (pruebas)?")) return;
-    await clearSalesEverywhere("ðŸ§¹ Ventas (pruebas) borradas");
+    if (!confirm("¿Limpiar ventas (pruebas)?")) return;
+    await clearSalesEverywhere("🧹 Ventas (pruebas) borradas");
   });
 
   btnClearReviews?.addEventListener("click", async () => {
-    if (!confirm("Â¿Borrar TODAS las reseÃ±as en todos los dispositivos?")) return;
+    if (!confirm("¿Borrar TODAS las reseñas en todos los dispositivos?")) return;
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (enabled && typeof apiClearReviews === "function") {
       try {
@@ -1320,7 +1320,7 @@
       }
     }
     localStorage.removeItem(REVIEWS_KEY);
-    showToast("ðŸ§¹ ReseÃ±as borradas");
+    showToast("🧹 Reseñas borradas");
   });
 
   /* ==========================================================
@@ -1370,12 +1370,12 @@
                 <div style="font-weight:900;">${escapeHTML(o.id)}</div>
                 <div class="muted" style="font-size:12px;">${fecha}</div>
                 <div class="muted" style="font-size:12px;margin-top:6px;">
-                  ðŸ‘¤ <b>${escapeHTML(o.cliente?.nombre || "-")}</b> Â· ðŸ“ž ${escapeHTML(o.cliente?.telefono || "-")}
-                  ${o.cliente?.direccion ? ` Â· ðŸ“ ${escapeHTML(o.cliente.direccion)}` : ""}
+                  👤 <b>${escapeHTML(o.cliente?.nombre || "-")}</b> · 📞 ${escapeHTML(o.cliente?.telefono || "-")}
+                  ${o.cliente?.direccion ? ` · 📍 ${escapeHTML(o.cliente.direccion)}` : ""}
                 </div>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                ${o.synced === false ? `<span class="pill" style="border-color:#f59e0b;">âš ï¸ Sin sync</span>` : ""}
+                ${o.synced === false ? `<span class="pill" style="border-color:#f59e0b;">⚠️ Sin sync</span>` : ""}
                 ${orderBadge(o.estado, !!o.esParcial)}
                 <div style="font-weight:900;">${formatCOP(o.total || 0)}</div>
               </div>
@@ -1428,19 +1428,19 @@
               ${
                 String(o.estado) === "pendiente"
                   ? `
-                    <button class="btn primary" data-order-accept="${escapeHTML(o.id)}" type="button">âœ… Aceptar</button>
-                    <button class="btn danger" data-order-reject="${escapeHTML(o.id)}" type="button">âŒ Rechazar</button>
+                    <button class="btn primary" data-order-accept="${escapeHTML(o.id)}" type="button">✅ Aceptar</button>
+                    <button class="btn danger" data-order-reject="${escapeHTML(o.id)}" type="button">❌ Rechazar</button>
                   `
                   : ""
               }
 
               ${
                 String(o.estado) === "aceptado"
-                  ? `<button class="btn danger" data-order-cancel="${escapeHTML(o.id)}" type="button">ðŸš« Cancelar (revertir stock)</button>`
+                  ? `<button class="btn danger" data-order-cancel="${escapeHTML(o.id)}" type="button">🚫 Cancelar (revertir stock)</button>`
                   : ""
               }
 
-              <button class="btn ghost" data-order-wa="${escapeHTML(o.id)}" type="button">ðŸ“² WhatsApp Cliente</button>
+              <button class="btn ghost" data-order-wa="${escapeHTML(o.id)}" type="button">📲 WhatsApp Cliente</button>
             </div>
 
             ${
@@ -1453,7 +1453,7 @@
       })
       .join("");
 
-    // âœ… WhatsApp Cliente
+    // ✅ WhatsApp Cliente
     ordersList.querySelectorAll("[data-order-wa]").forEach((b) => {
       b.addEventListener("click", () => {
         const id = b.getAttribute("data-order-wa");
@@ -1469,7 +1469,7 @@
       });
     });
 
-    // âœ… anti doble click (UX)
+    // ✅ anti doble click (UX)
     ordersList.querySelectorAll("[data-order-accept]").forEach((b) => {
       b.addEventListener("click", () => {
         b.disabled = true;
@@ -1497,10 +1497,10 @@
     updateStats();
   }
 
-  // âœ… ACEPTAR (con lock + finally)
+  // ✅ ACEPTAR (con lock + finally)
   function acceptOrderFlow(orderId) {
     if (!acquireOrderLock(orderId)) {
-      showToast("â³ Ya se estÃ¡ procesando este pedido...");
+      showToast("⏳ Ya se está procesando este pedido...");
       return;
     }
 
@@ -1510,7 +1510,7 @@
       if (!order) return;
 
       if (String(order.estado) !== "pendiente") {
-        alert("Este pedido ya no estÃ¡ pendiente.");
+        alert("Este pedido ya no está pendiente.");
         return;
       }
 
@@ -1568,9 +1568,10 @@
       syncChangedProductsToApi(accepted, "order-accept").catch((e) =>
         console.warn("syncChangedProductsToApi error:", e)
       );
+
       const totalAceptado = accepted.reduce((s, it) => s + (it.subtotal || 0), 0);
       if (totalAceptado <= 0) {
-        alert("El total aceptado es invÃ¡lido.");
+        alert("El total aceptado es inválido.");
         return;
       }
 
@@ -1589,7 +1590,7 @@
         apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
       }
 
-      // âœ… WhatsApp automÃ¡tico al cliente
+      // ✅ WhatsApp automático al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
       } catch (e) {
@@ -1637,7 +1638,7 @@
 
       upsertReceipt(receipt);
 
-      showToast(esParcial ? "âœ… Pedido aceptado (parcial)" : "âœ… Pedido aceptado");
+      showToast(esParcial ? "✅ Pedido aceptado (parcial)" : "✅ Pedido aceptado");
       renderOrders();
       renderSales();
       updateStats();
@@ -1646,10 +1647,10 @@
     }
   }
 
-  // âœ… RECHAZAR (con lock + finally)
+  // ✅ RECHAZAR (con lock + finally)
   function rejectOrderFlow(orderId) {
     if (!acquireOrderLock(orderId)) {
-      showToast("â³ Ya se estÃ¡ procesando este pedido...");
+      showToast("⏳ Ya se está procesando este pedido...");
       return;
     }
 
@@ -1659,7 +1660,7 @@
       if (!order) return;
 
       if (String(order.estado) !== "pendiente") {
-        alert("Este pedido ya no estÃ¡ pendiente.");
+        alert("Este pedido ya no está pendiente.");
         return;
       }
 
@@ -1674,14 +1675,14 @@
         apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
       }
 
-      // âœ… (opcional pro) avisar al cliente
+      // ✅ (opcional pro) avisar al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
       } catch (e) {
         console.warn("No se pudo abrir WhatsApp del cliente:", e);
       }
 
-      showToast("âŒ Pedido rechazado");
+      showToast("❌ Pedido rechazado");
       renderOrders();
       updateStats();
     } finally {
@@ -1689,10 +1690,10 @@
     }
   }
 
-  // âœ… CANCELAR (con lock + finally)
+  // ✅ CANCELAR (con lock + finally)
   function cancelOrderFlow(orderId) {
     if (!acquireOrderLock(orderId)) {
-      showToast("â³ Ya se estÃ¡ procesando este pedido...");
+      showToast("⏳ Ya se está procesando este pedido...");
       return;
     }
 
@@ -1706,7 +1707,7 @@
         return;
       }
 
-      if (!confirm("Â¿Cancelar pedido y revertir stock de los items aceptados?")) return;
+      if (!confirm("¿Cancelar pedido y revertir stock de los items aceptados?")) return;
 
       savedProducts = loadSavedProductsArray();
       const updated = savedProducts.slice();
@@ -1733,14 +1734,14 @@
         apiUpdateOrderStatus(order).catch((e) => console.warn("apiUpdateOrderStatus error:", e));
       }
 
-      // âœ… (opcional pro) avisar al cliente
+      // ✅ (opcional pro) avisar al cliente
       try {
         sendOrderUpdateToClientWhatsApp(order);
       } catch (e) {
         console.warn("No se pudo abrir WhatsApp del cliente:", e);
       }
 
-      showToast("ðŸš« Pedido cancelado (stock revertido)");
+      showToast("🚫 Pedido cancelado (stock revertido)");
       renderOrders();
       updateStats();
     } finally {
@@ -1755,7 +1756,7 @@
   });
 
   btnClearOrders?.addEventListener("click", async () => {
-    if (!confirm("Â¿Borrar TODOS los pedidos (pruebas)?")) return;
+    if (!confirm("¿Borrar TODOS los pedidos (pruebas)?")) return;
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (enabled && typeof apiClearOrders === "function") {
       try {
@@ -1765,7 +1766,7 @@
       }
     }
     saveOrders([]);
-    showToast("ðŸ§¹ Pedidos borrados");
+    showToast("🧹 Pedidos borrados");
     renderOrders();
     updateStats();
   });
@@ -1792,7 +1793,7 @@
   ensureAuthUser();
 
   /* ==========================================================
-    âœ… Auto-sync (polling suave) para pedidos y ventas
+    ✅ Auto-sync (polling suave) para pedidos y ventas
   ========================================================== */
   const ADMIN_POLL_MS = 20000;
   setInterval(async () => {
@@ -1814,12 +1815,12 @@
   if (week !== last) {
     localStorage.setItem(KEY, String(week));
     setTimeout(() => {
-      alert("ðŸ”’ RecomendaciÃ³n: exporta Productos y Ventas (CSV) al menos 1 vez por semana para respaldo.");
+      alert("🔒 Recomendación: exporta Productos y Ventas (CSV) al menos 1 vez por semana para respaldo.");
     }, 600);
   }
 })();
 
-// âœ… Hacer TODA la tarjeta de "Alertas Stock" clickeable
+// ✅ Hacer TODA la tarjeta de "Alertas Stock" clickeable
 (function bindAlertasStockCard() {
   const stat = document.getElementById("statAlertas");
   if (!stat) return;
@@ -1845,7 +1846,7 @@
       showLowStockModal();
     } catch (e) {
       console.error(e);
-      alert("âš ï¸ No se pudo mostrar la alerta de stock. Revisa consola.");
+      alert("⚠️ No se pudo mostrar la alerta de stock. Revisa consola.");
     }
   });
 })();
