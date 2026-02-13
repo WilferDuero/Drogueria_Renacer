@@ -11,6 +11,32 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change";
 const TOKEN_TTL = process.env.JWT_TTL || "8h";
 
+const DEFAULT_CORS_ORIGINS = [
+  "https://drogueria-renacer.vercel.app",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "null",
+];
+
+const configuredOrigins = String(process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set(
+  (configuredOrigins.length ? configuredOrigins : DEFAULT_CORS_ORIGINS).map((o) =>
+    String(o).toLowerCase()
+  )
+);
+
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (allowedOrigins.has(String(origin).toLowerCase())) return callback(null, true);
+  return callback(null, false);
+};
+
 if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-secret-change") {
   console.error("JWT_SECRET no configurado. Configuralo en variables de entorno.");
   process.exit(1);
@@ -26,8 +52,10 @@ app.use((_req, res, next) => {
 });
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigin,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 204,
   })
 );
 app.use(express.json({ limit: "1mb" }));
