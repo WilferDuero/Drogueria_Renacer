@@ -1,4 +1,4 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const path = require("path");
 const fs = require("fs");
@@ -19,8 +19,21 @@ async function seedOwner(db) {
     const count = Number(row?.c ?? row?.count ?? 0);
     if (!count) {
       const username = process.env.ADMIN_USER || "admin";
-      const password = process.env.ADMIN_PASS || "wilfer1234";
+      let password = String(process.env.ADMIN_PASS || "").trim();
       const role = process.env.ADMIN_ROLE || "owner";
+
+      if (!password) {
+        if (process.env.NODE_ENV === "production") {
+          throw new Error(
+            "ADMIN_PASS es obligatorio en production para crear el usuario owner inicial."
+          );
+        }
+        password = "admin-local-change";
+        console.warn(
+          "ADMIN_PASS no definido. Se creo owner local con clave temporal 'admin-local-change'. Cambiala despues del primer login."
+        );
+      }
+
       const hash = await bcrypt.hash(password, 10);
       await db.run("INSERT INTO users (username, passwordHash, role) VALUES (?,?,?)", [
         username,
@@ -28,7 +41,10 @@ async function seedOwner(db) {
         role,
       ]);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("seedOwner error:", e?.message || e);
+    throw e;
+  }
 }
 
 async function initSqlite() {
