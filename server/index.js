@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const https = require("https");
 const { dbPromise } = require("./db");
 
 const app = express();
@@ -200,6 +201,7 @@ function ownerOnly(req, res, next) {
 }
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const EXPO_PUSH_REQUEST_TIMEOUT_MS = 15000;
 
 const isExpoPushToken = (token) =>
   /^ExponentPushToken\[[^\]]+\]$/.test(token) || /^ExpoPushToken\[[^\]]+\]$/.test(token);
@@ -249,23 +251,78 @@ async function disablePushTokens(db, tokens) {
   );
 }
 
-async function sendExpoPushChunk(chunk) {
-  const response = await fetch(EXPO_PUSH_URL, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(chunk),
-  });
+function postJsonWithHttps(url, jsonBody) {
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      url,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(jsonBody),
+        },
+      },
+      (response) => {
+        let raw = "";
+        response.on("data", (chunk) => {
+          raw += String(chunk);
+        });
+        response.on("end", () => {
+          let payload = null;
+          try {
+            payload = raw ? JSON.parse(raw) : null;
+          } catch {
+            payload = null;
+          }
+          resolve({
+            ok: Number(response.statusCode) >= 200 && Number(response.statusCode) < 300,
+            status: Number(response.statusCode) || 500,
+            payload,
+          });
+        });
+      }
+    );
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
+    request.setTimeout(EXPO_PUSH_REQUEST_TIMEOUT_MS, () => {
+      request.destroy(new Error("Timeout enviando push a Expo"));
+    });
+    request.on("error", reject);
+    request.write(jsonBody);
+    request.end();
+  });
+}
+
+async function sendExpoPushChunk(chunk) {
+  const body = JSON.stringify(chunk);
+  let payload = null;
+  let status = 0;
+  let ok = false;
+
+  if (typeof fetch === "function") {
+    const response = await fetch(EXPO_PUSH_URL, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+    payload = await response.json().catch(() => null);
+    status = Number(response.status) || 500;
+    ok = !!response.ok;
+  } else {
+    const fallbackResponse = await postJsonWithHttps(EXPO_PUSH_URL, body);
+    payload = fallbackResponse.payload;
+    status = fallbackResponse.status;
+    ok = fallbackResponse.ok;
+  }
+
+  if (!ok) {
     throw new Error(
-      payload?.errors?.[0]?.message ||
-        payload?.error ||
-        `Error enviando push. HTTP ${response.status}`
+      payload?.errors?.[0]?.message || payload?.error || `Error enviando push. HTTP ${status}`
     );
   }
 
@@ -273,16 +330,17 @@ async function sendExpoPushChunk(chunk) {
 }
 
 async function sendPushToRoles({ roles, title, body, data = {} }) {
-  if (typeof fetch !== "function") {
-    console.warn("[push] fetch no disponible en runtime, se omite envio.");
-    return { sent: 0, inactive: 0 };
-  }
   const db = await dbPromise;
   const tokens = await listPushTokensByRoles(db, roles);
-  if (!tokens.length) return { sent: 0, inactive: 0 };
+  if (!tokens.length) {
+    return { sent: 0, inactive: 0 };
+  }
 
   const validTokens = [...new Set(tokens)].filter(isExpoPushToken);
-  if (!validTokens.length) return { sent: 0, inactive: 0 };
+  if (!validTokens.length) {
+    console.warn("[push] no hay tokens Expo validos activos para envio.");
+    return { sent: 0, inactive: 0 };
+  }
 
   const messages = validTokens.map((token) => ({
     to: token,
@@ -304,6 +362,13 @@ async function sendPushToRoles({ roles, title, body, data = {} }) {
         ticket?.status === "error" && ticket?.details?.error === "DeviceNotRegistered";
       if (isDeviceNotRegistered) {
         staleTokens.push(chunk[index]?.to);
+      }
+      if (ticket?.status === "error" && !isDeviceNotRegistered) {
+        console.warn(
+          `[push] ticket error: ${ticket?.details?.error || "unknown"} - ${
+            ticket?.message || "sin mensaje"
+          }`
+        );
       }
     });
   }
