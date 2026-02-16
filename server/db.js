@@ -121,6 +121,18 @@ async function initSqlite() {
       fechaISO TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS push_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER,
+      role TEXT DEFAULT 'owner',
+      platform TEXT,
+      deviceId TEXT,
+      token TEXT UNIQUE,
+      active INTEGER DEFAULT 1,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   try {
@@ -140,6 +152,12 @@ async function initSqlite() {
   } catch (e) {}
   try {
     await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_ref_user ON sales(refId, userId);");
+  } catch (e) {}
+  try {
+    await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_push_tokens_token ON push_tokens(token);");
+  } catch (e) {}
+  try {
+    await db.exec("CREATE INDEX IF NOT EXISTS idx_push_tokens_role_active ON push_tokens(role, active);");
   } catch (e) {}
 
   await seedOwner(db);
@@ -228,10 +246,25 @@ async function initPostgres() {
       createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     `,
+    `
+    CREATE TABLE IF NOT EXISTS push_tokens (
+      id SERIAL PRIMARY KEY,
+      userId INTEGER,
+      role TEXT DEFAULT 'owner',
+      platform TEXT,
+      deviceId TEXT,
+      token TEXT UNIQUE,
+      active INTEGER DEFAULT 1,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `,
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_externalId ON orders(externalId);",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);",
     "CREATE INDEX IF NOT EXISTS idx_sales_userId ON sales(userId);",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_ref_user ON sales(refId, userId);",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_push_tokens_token ON push_tokens(token);",
+    "CREATE INDEX IF NOT EXISTS idx_push_tokens_role_active ON push_tokens(role, active);",
   ];
 
   for (const stmt of statements) {

@@ -7,6 +7,10 @@ export interface ApiError extends Error {
   details?: unknown;
 }
 
+type RequestConfig = AxiosRequestConfig & {
+  skipUnauthorizedHandler?: boolean;
+};
+
 type TokenResolver = () => string | null;
 type UnauthorizedHandler = () => void;
 
@@ -76,7 +80,10 @@ apiClient.interceptors.response.use(
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       const url = error.config?.url || "";
       const isLoginRequest = url.includes("/auth/login");
-      if (!isLoginRequest && onUnauthorized && !isHandlingUnauthorized) {
+      const skipUnauthorizedHandler = Boolean(
+        (error.config as RequestConfig | undefined)?.skipUnauthorizedHandler
+      );
+      if (!isLoginRequest && !skipUnauthorizedHandler && onUnauthorized && !isHandlingUnauthorized) {
         isHandlingUnauthorized = true;
         Promise.resolve()
           .then(() => onUnauthorized?.())
@@ -89,7 +96,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const request = async <T>(config: AxiosRequestConfig) => {
+export const request = async <T>(config: RequestConfig) => {
   const response = await apiClient.request<T>(config);
   return response.data;
 };

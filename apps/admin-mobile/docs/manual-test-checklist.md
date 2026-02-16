@@ -17,6 +17,13 @@
 - [ ] Dashboard muestra alertas in-app cuando suben pedidos pendientes.
 - [ ] Dashboard muestra alertas in-app cuando aumenta stock bajo.
 
+## 2.1 Push (app cerrada/background)
+- [ ] Conceder permiso de notificaciones en Android/iOS.
+- [ ] Crear pedido nuevo y validar push con app en background.
+- [ ] Crear pedido nuevo y validar push con app cerrada.
+- [ ] Bajar stock a umbral bajo y validar push.
+- [ ] Logout y validar que token se desregistre sin romper sesion.
+
 ## 3. Productos
 - [ ] Listar productos.
 - [ ] Buscar por nombre/categoria/descripcion.

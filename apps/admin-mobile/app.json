@@ -33,6 +33,7 @@
                  "plugins":  [
                                  "expo-secure-store",
                                  "expo-dev-client",
+                                 "expo-notifications",
                                  [
                                      "expo-build-properties",
                                      {

@@ -10,4 +10,4 @@
 8. Hardening adicional de seguridad (biometria opcional para reentrada, bloqueo por inactividad).
 9. Plantillas configurables de WhatsApp (mensajes editables por negocio).
 10. Migracion a New Architecture de React Native (actualmente Legacy Architecture).
-11. Push notifications reales (app cerrada/background) para pedidos nuevos y stock bajo, con soporte backend.
+11. Mejoras de push: preferencias por usuario, horario silencioso y deduplicacion avanzada.

@@ -15,6 +15,7 @@ App movil solo para panel admin (roles `owner` y `staff`) usando React Native + 
 - Campo de contrasena con ver/ocultar en login y usuarios
 - Dashboard con estado API (`GET /health`) + metricas
 - Alertas operativas in-app (pedido nuevo / stock bajo) con centro global en header
+- Push notifications reales para app cerrada/background (pedido nuevo y stock bajo)
 - Productos: listar/crear/editar/eliminar
 - Pedidos: listar, filtrar por estado/fecha/busqueda, aceptar/rechazar/cancelar
 - Pedidos: WhatsApp al cliente (automatico + boton manual por pedido)
@@ -30,6 +31,8 @@ App movil solo para panel admin (roles `owner` y `staff`) usando React Native + 
 - `GET /health`
 - `POST /auth/login`
 - `GET /auth/me`
+- `POST /notifications/register`
+- `POST /notifications/unregister`
 - `GET /users`
 - `POST /users`
 - `PUT /users/:id`
@@ -55,8 +58,14 @@ App movil solo para panel admin (roles `owner` y `staff`) usando React Native + 
    - `EXPO_PUBLIC_API_TIMEOUT_MS`
    - `EXPO_PUBLIC_SESSION_IDLE_TIMEOUT_MS`
    - `EXPO_PUBLIC_AUTO_SYNC_INTERVAL_MS`
+   - `EXPO_PUBLIC_EAS_PROJECT_ID` (requerido para push en Expo)
 
 Si no defines variables, la app usa `https://drogueria-renacer.onrender.com` por defecto.
+
+## Configuracion backend para push
+Configura en `server/.env` o en Render:
+- `PUSH_NOTIFY_ROLES=owner` (o `owner,staff`)
+- `PUSH_LOW_STOCK_THRESHOLD=2`
 
 ## Estructura
 ```text
@@ -133,7 +142,7 @@ npx expo run:ios
 - Auto logout por inactividad al volver desde background (configurable por entorno).
 - Validacion de estados permitidos de pedido en app:
   - `pendiente`, `aceptado`, `rechazado`, `cancelado`
-- No se agregaron endpoints nuevos ni cambios de backend.
+- Push en backend se ejecuta en modo no bloqueante (si falla, no rompe pedidos/productos).
 
 ## Dev Client + USB (Android recomendado)
 Flujo para mayor estabilidad (sin depender de tunnel):

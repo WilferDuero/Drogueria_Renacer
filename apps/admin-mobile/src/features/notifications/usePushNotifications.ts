@@ -1,0 +1,143 @@
+import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
+import { useEffect } from "react";
+import { Platform } from "react-native";
+import { registerPushDevice } from "../../api/modules/notifications";
+import { ENV } from "../../config/env";
+import { setActivePushToken } from "../../lib/push-session";
+import { useAuthStore } from "../../store/auth-store";
+import { useSyncStore } from "../../store/sync-store";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+const resolveExpoProjectId = () => {
+  if (ENV.pushProjectId) {
+    return ENV.pushProjectId;
+  }
+  const extraProjectId = Constants.expoConfig?.extra?.eas?.projectId;
+  if (typeof extraProjectId === "string" && extraProjectId.trim()) {
+    return extraProjectId.trim();
+  }
+  const easConfigProjectId = (Constants as { easConfig?: { projectId?: string } }).easConfig
+    ?.projectId;
+  if (typeof easConfigProjectId === "string" && easConfigProjectId.trim()) {
+    return easConfigProjectId.trim();
+  }
+  return null;
+};
+
+const resolveAlertType = (rawType: unknown) => {
+  const normalized = String(rawType || "").toLowerCase();
+  if (normalized === "new_order") return "orders" as const;
+  if (normalized === "stock_low") return "stock" as const;
+  return "system" as const;
+};
+
+const registerDevicePushToken = async () => {
+  if (!Constants.isDevice) {
+    return null;
+  }
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#21808d",
+    });
+  }
+
+  const permissions = await Notifications.getPermissionsAsync();
+  let finalStatus = permissions.status;
+  if (finalStatus !== "granted") {
+    const requested = await Notifications.requestPermissionsAsync();
+    finalStatus = requested.status;
+  }
+  if (finalStatus !== "granted") {
+    return null;
+  }
+
+  const projectId = resolveExpoProjectId();
+  if (!projectId) {
+    return null;
+  }
+
+  const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+  return String(tokenResponse.data || "").trim() || null;
+};
+
+const pushAlertFromNotification = (
+  pushInAppAlert: ReturnType<typeof useSyncStore.getState>["pushInAppAlert"],
+  notification:
+    | Notifications.Notification
+    | Notifications.NotificationResponse["notification"]
+) => {
+  const content = notification.request.content;
+  const title = String(content.title || "").trim();
+  const message = String(content.body || "").trim();
+  if (!title && !message) {
+    return;
+  }
+  const type = resolveAlertType(content.data?.type);
+  pushInAppAlert({
+    type,
+    title: title || "Notificacion",
+    message: message || "Tienes una actualizacion.",
+  });
+};
+
+export const usePushNotifications = () => {
+  const authStatus = useAuthStore((state) => state.status);
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const pushInAppAlert = useSyncStore((state) => state.pushInAppAlert);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !userId) {
+      setActivePushToken(null);
+      return;
+    }
+
+    let canceled = false;
+    const register = async () => {
+      try {
+        const token = await registerDevicePushToken();
+        if (!token || canceled) {
+          return;
+        }
+        await registerPushDevice({
+          token,
+          platform: Platform.OS,
+        });
+        if (!canceled) {
+          setActivePushToken(token);
+        }
+      } catch (error) {
+        console.warn("push register error", error);
+      }
+    };
+    void register();
+
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      pushAlertFromNotification(pushInAppAlert, notification);
+    });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        pushAlertFromNotification(pushInAppAlert, response.notification);
+      }
+    );
+
+    return () => {
+      canceled = true;
+      receivedSubscription.remove();
+      responseSubscription.remove();
+    };
+  }, [authStatus, userId, pushInAppAlert]);
+};

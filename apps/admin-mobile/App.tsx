@@ -12,6 +12,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { AppNavigator } from "./src/navigation/AppNavigator";
+import { usePushNotifications } from "./src/features/notifications/usePushNotifications";
 import { useAuthStore } from "./src/store/auth-store";
 import { theme } from "./src/constants/theme";
 import { ENV } from "./src/config/env";
@@ -22,6 +23,7 @@ export default function App() {
   const status = useAuthStore((state) => state.status);
   const isBootstrapping = useAuthStore((state) => state.isBootstrapping);
   const backgroundAtRef = useRef<number | null>(null);
+  usePushNotifications();
 
   useEffect(() => {
     void bootstrap();

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { fetchAuthMe, loginAdmin } from "../api/modules/auth";
+import { unregisterPushDevice } from "../api/modules/notifications";
 import { AuthUser } from "../types/domain";
+import { getActivePushToken, setActivePushToken } from "../lib/push-session";
 import { tokenStorage } from "../lib/token-storage";
 import { setAuthTokenResolver, setUnauthorizedHandler } from "../api/client";
 
@@ -33,6 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const token = await tokenStorage.get();
       if (!token) {
+        setActivePushToken(null);
         set({ status: "unauthenticated", user: null, token: null });
         return;
       }
@@ -41,6 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const user = await fetchAuthMe();
       set({ status: "authenticated", user, token });
     } catch {
+      setActivePushToken(null);
       await tokenStorage.clear();
       set({ status: "unauthenticated", user: null, token: null });
     } finally {
@@ -64,6 +68,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const activePushToken = getActivePushToken();
+    if (activePushToken) {
+      try {
+        await unregisterPushDevice(activePushToken);
+      } catch {
+      } finally {
+        setActivePushToken(null);
+      }
+    }
     await tokenStorage.clear();
     set({
       status: "unauthenticated",

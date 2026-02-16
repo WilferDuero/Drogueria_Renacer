@@ -41,10 +41,19 @@ const readAutoSyncInterval = () => {
   return DEFAULT_AUTO_SYNC_INTERVAL_MS;
 };
 
+const readPushProjectId = () => {
+  const raw = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  if (typeof raw === "string" && raw.trim()) {
+    return raw.trim();
+  }
+  return null;
+};
+
 export const ENV = {
   appName: "Drogueria Renacer Admin",
   apiBaseUrl: readApiBaseUrl(),
   apiTimeoutMs: readTimeout(),
   sessionIdleTimeoutMs: readIdleTimeout(),
   autoSyncIntervalMs: readAutoSyncInterval(),
+  pushProjectId: readPushProjectId(),
 } as const;

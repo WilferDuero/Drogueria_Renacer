@@ -10,6 +10,18 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change";
 const TOKEN_TTL = process.env.JWT_TTL || "8h";
+const PUSH_LOW_STOCK_THRESHOLD = Math.max(
+  1,
+  Number.parseInt(process.env.PUSH_LOW_STOCK_THRESHOLD || "2", 10) || 2
+);
+const PUSH_NOTIFY_ROLES = (() => {
+  const allowed = new Set(["owner", "staff"]);
+  const configured = String(process.env.PUSH_NOTIFY_ROLES || "owner")
+    .split(",")
+    .map((v) => String(v || "").trim().toLowerCase())
+    .filter((v) => allowed.has(v));
+  return configured.length ? configured : ["owner"];
+})();
 
 const DEFAULT_CORS_ORIGINS = [
   "https://drogueria-renacer.vercel.app",
@@ -64,6 +76,13 @@ const toNumber = (v, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
+
+const formatMoneyCop = (value) =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(toNumber(value, 0));
 
 const toInt = (v, fallback = 0) => {
   const n = parseInt(v, 10);
@@ -180,6 +199,130 @@ function ownerOnly(req, res, next) {
   return next();
 }
 
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+
+const isExpoPushToken = (token) =>
+  /^ExponentPushToken\[[^\]]+\]$/.test(token) || /^ExpoPushToken\[[^\]]+\]$/.test(token);
+
+const chunkArray = (items, chunkSize) => {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+const runNonBlocking = (label, taskFn) => {
+  Promise.resolve()
+    .then(taskFn)
+    .catch((error) => {
+      console.error(`[push:${label}]`, error?.message || error);
+    });
+};
+
+const sanitizePushRoleList = (roles) => {
+  const safeRoles = Array.isArray(roles) ? roles : PUSH_NOTIFY_ROLES;
+  return safeRoles
+    .map((role) => String(role || "").trim().toLowerCase())
+    .filter((role) => role === "owner" || role === "staff");
+};
+
+async function listPushTokensByRoles(db, roles) {
+  const roleList = sanitizePushRoleList(roles);
+  if (!roleList.length) return [];
+  const placeholders = roleList.map(() => "?").join(",");
+  const rows = await db.all(
+    `SELECT token FROM push_tokens WHERE active = 1 AND role IN (${placeholders})`,
+    roleList
+  );
+  return rows
+    .map((row) => String(row?.token || "").trim())
+    .filter((token) => token.length > 0);
+}
+
+async function disablePushTokens(db, tokens) {
+  if (!tokens.length) return;
+  const placeholders = tokens.map(() => "?").join(",");
+  await db.run(
+    `UPDATE push_tokens SET active = 0, updatedAt = CURRENT_TIMESTAMP WHERE token IN (${placeholders})`,
+    tokens
+  );
+}
+
+async function sendExpoPushChunk(chunk) {
+  const response = await fetch(EXPO_PUSH_URL, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(chunk),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      payload?.errors?.[0]?.message ||
+        payload?.error ||
+        `Error enviando push. HTTP ${response.status}`
+    );
+  }
+
+  return Array.isArray(payload?.data) ? payload.data : [];
+}
+
+async function sendPushToRoles({ roles, title, body, data = {} }) {
+  if (typeof fetch !== "function") {
+    console.warn("[push] fetch no disponible en runtime, se omite envio.");
+    return { sent: 0, inactive: 0 };
+  }
+  const db = await dbPromise;
+  const tokens = await listPushTokensByRoles(db, roles);
+  if (!tokens.length) return { sent: 0, inactive: 0 };
+
+  const validTokens = [...new Set(tokens)].filter(isExpoPushToken);
+  if (!validTokens.length) return { sent: 0, inactive: 0 };
+
+  const messages = validTokens.map((token) => ({
+    to: token,
+    sound: "default",
+    priority: "high",
+    title: String(title || "").slice(0, 120),
+    body: String(body || "").slice(0, 400),
+    data,
+  }));
+
+  let sent = 0;
+  const staleTokens = [];
+  const chunks = chunkArray(messages, 100);
+  for (const chunk of chunks) {
+    const tickets = await sendExpoPushChunk(chunk);
+    sent += chunk.length;
+    tickets.forEach((ticket, index) => {
+      const isDeviceNotRegistered =
+        ticket?.status === "error" && ticket?.details?.error === "DeviceNotRegistered";
+      if (isDeviceNotRegistered) {
+        staleTokens.push(chunk[index]?.to);
+      }
+    });
+  }
+
+  const uniqueStale = [...new Set(staleTokens.filter(Boolean))];
+  if (uniqueStale.length) {
+    await disablePushTokens(db, uniqueStale);
+  }
+  return { sent, inactive: uniqueStale.length };
+}
+
+const isLowStock = (stock) => {
+  const normalized = toInt(stock, 0);
+  return normalized >= 0 && normalized <= PUSH_LOW_STOCK_THRESHOLD;
+};
+
+const crossedIntoLowStock = (beforeStock, afterStock) =>
+  !isLowStock(beforeStock) && isLowStock(afterStock);
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
@@ -232,6 +375,59 @@ app.get("/auth/me", authRequired, async (req, res) => {
   const user = await db.get("SELECT id, username, role FROM users WHERE id = ?", [req.user.id]);
   if (!user) return res.status(401).json({ error: "Usuario inválido" });
   res.json(user);
+});
+
+/* ============================
+   Notificaciones push
+============================ */
+app.post("/notifications/register", authRequired, async (req, res) => {
+  const token = String(req.body?.token || "").trim();
+  const platform = String(req.body?.platform || "").trim().toLowerCase();
+  const deviceId = String(req.body?.deviceId || "").trim();
+  if (!isExpoPushToken(token)) {
+    return res.status(400).json({ error: "Token push invalido" });
+  }
+
+  const db = await dbPromise;
+  const existing = await db.get("SELECT id FROM push_tokens WHERE token = ?", [token]);
+  if (existing?.id) {
+    await db.run(
+      `
+      UPDATE push_tokens
+      SET userId = ?, role = ?, platform = ?, deviceId = ?, active = 1, updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `,
+      [req.user.id, req.user.role, platform || null, deviceId || null, existing.id]
+    );
+    return res.json({ ok: true, updated: true });
+  }
+
+  await db.run(
+    `
+    INSERT INTO push_tokens (userId, role, platform, deviceId, token, active, updatedAt)
+    VALUES (?,?,?,?,?,1,CURRENT_TIMESTAMP)
+    `,
+    [req.user.id, req.user.role, platform || null, deviceId || null, token]
+  );
+  return res.json({ ok: true });
+});
+
+app.post("/notifications/unregister", authRequired, async (req, res) => {
+  const token = String(req.body?.token || "").trim();
+  if (!token) {
+    return res.status(400).json({ error: "Token push requerido" });
+  }
+
+  const db = await dbPromise;
+  await db.run(
+    `
+    UPDATE push_tokens
+    SET active = 0, updatedAt = CURRENT_TIMESTAMP
+    WHERE token = ? AND userId = ?
+    `,
+    [token, req.user.id]
+  );
+  return res.json({ ok: true });
 });
 
 /* ============================
@@ -306,8 +502,13 @@ app.post("/products", authRequired, async (req, res) => {
 
   const db = await dbPromise;
   if (externalId) {
-    const existing = await db.get("SELECT id FROM products WHERE externalId = ?", [externalId]);
+    const existing = await db.get(
+      "SELECT id, nombre, stockCajas FROM products WHERE externalId = ?",
+      [externalId]
+    );
     if (existing && existing.id) {
+      const previousStock = toInt(existing.stockCajas, Number.MAX_SAFE_INTEGER);
+      const nextStock = toInt(p.stockCajas, 0);
       await db.run(
         `
         UPDATE products SET
@@ -335,9 +536,26 @@ app.post("/products", authRequired, async (req, res) => {
           externalId,
         ]
       );
+      if (crossedIntoLowStock(previousStock, nextStock)) {
+        runNonBlocking("stock-low-external-upsert", async () => {
+          await sendPushToRoles({
+            roles: PUSH_NOTIFY_ROLES,
+            title: "Alerta de stock bajo",
+            body: `${p.nombre || existing.nombre || "Producto"} quedo en ${nextStock} cajas.`,
+            data: {
+              type: "stock_low",
+              externalId,
+              productName: p.nombre || existing.nombre || "",
+              stockCajas: nextStock,
+              threshold: PUSH_LOW_STOCK_THRESHOLD,
+            },
+          });
+        });
+      }
       return res.json({ id: existing.id, updated: true });
     }
   }
+  const initialStock = toInt(p.stockCajas, 0);
   const result = await db.run(
     `
     INSERT INTO products
@@ -366,6 +584,24 @@ app.post("/products", authRequired, async (req, res) => {
     ]
   );
 
+  if (isLowStock(initialStock)) {
+    runNonBlocking("stock-low-create", async () => {
+      await sendPushToRoles({
+        roles: PUSH_NOTIFY_ROLES,
+        title: "Alerta de stock bajo",
+        body: `${p.nombre || "Producto"} quedo en ${initialStock} cajas.`,
+        data: {
+          type: "stock_low",
+          productId: result.lastID,
+          externalId,
+          productName: p.nombre || "",
+          stockCajas: initialStock,
+          threshold: PUSH_LOW_STOCK_THRESHOLD,
+        },
+      });
+    });
+  }
+
   res.json({ id: result.lastID });
 });
 
@@ -375,6 +611,12 @@ app.put("/products/:id", authRequired, async (req, res) => {
 
   const p = req.body || {};
   const db = await dbPromise;
+  const existing = await db.get(
+    "SELECT id, nombre, stockCajas, externalId FROM products WHERE id = ?",
+    [id]
+  );
+  const previousStock = toInt(existing?.stockCajas, Number.MAX_SAFE_INTEGER);
+  const nextStock = toInt(p.stockCajas, 0);
 
   await db.run(
     `
@@ -403,6 +645,24 @@ app.put("/products/:id", authRequired, async (req, res) => {
       id,
     ]
   );
+
+  if (existing?.id && crossedIntoLowStock(previousStock, nextStock)) {
+    runNonBlocking("stock-low-id-update", async () => {
+      await sendPushToRoles({
+        roles: PUSH_NOTIFY_ROLES,
+        title: "Alerta de stock bajo",
+        body: `${p.nombre || existing.nombre || "Producto"} quedo en ${nextStock} cajas.`,
+        data: {
+          type: "stock_low",
+          productId: id,
+          externalId: existing.externalId || null,
+          productName: p.nombre || existing.nombre || "",
+          stockCajas: nextStock,
+          threshold: PUSH_LOW_STOCK_THRESHOLD,
+        },
+      });
+    });
+  }
 
   res.json({ ok: true });
 });
@@ -441,6 +701,24 @@ app.put("/products/external/:externalId", authRequired, async (req, res) => {
       externalId,
     ]
   );
+
+  const nextStock = toInt(p.stockCajas, 0);
+  if (isLowStock(nextStock)) {
+    runNonBlocking("stock-low-external-update", async () => {
+      await sendPushToRoles({
+        roles: PUSH_NOTIFY_ROLES,
+        title: "Alerta de stock bajo",
+        body: `${p.nombre || "Producto"} quedo en ${nextStock} cajas.`,
+        data: {
+          type: "stock_low",
+          externalId,
+          productName: p.nombre || "",
+          stockCajas: nextStock,
+          threshold: PUSH_LOW_STOCK_THRESHOLD,
+        },
+      });
+    });
+  }
 
   res.json({ ok: true });
 });
@@ -485,6 +763,7 @@ app.post("/orders", async (req, res) => {
   const items = Array.isArray(o.items) ? o.items : [];
   const total = toNumber(o.total);
   const externalId = o.externalId || o.id || null;
+  const status = String(o.estado || "pendiente").toLowerCase();
 
   const db = await dbPromise;
   if (externalId) {
@@ -506,9 +785,29 @@ app.post("/orders", async (req, res) => {
       o.clienteDireccion || "",
       JSON.stringify(items),
       total,
-      o.estado || "pendiente",
+      status,
     ]
   );
+
+  if (status === "pendiente") {
+    runNonBlocking("order-created", async () => {
+      const orderRef = externalId || `#${result.lastID}`;
+      const customer = String(o.clienteNombre || "").trim() || "Cliente";
+      await sendPushToRoles({
+        roles: PUSH_NOTIFY_ROLES,
+        title: "Nuevo pedido pendiente",
+        body: `${customer} envio ${orderRef} por ${formatMoneyCop(total)}.`,
+        data: {
+          type: "new_order",
+          orderId: result.lastID,
+          externalId,
+          customerName: customer,
+          total,
+          estado: status,
+        },
+      });
+    });
+  }
 
   res.json({ id: result.lastID });
 });
