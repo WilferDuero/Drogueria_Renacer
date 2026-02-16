@@ -86,6 +86,7 @@ const initialForm: SaleFormState = {
 
 const saleItemsTemplate =
   '[{"nombre":"Producto","presentacion":"caja","precioUnit":1000,"cantidad":1,"subtotal":1000}]';
+const saleItemsPlaceholder = "Opcional (avanzado): detalle de items en formato JSON";
 
 const normalizeItemsFromText = (itemsJson: string): SaleItem[] => {
   if (!itemsJson.trim()) {
@@ -367,13 +368,16 @@ export const SalesScreen = () => {
           editable={!isOperationLocked}
         />
         <FormField
-          label="Items JSON (opcional)"
+          label="Items JSON (opcional, avanzado)"
           value={form.itemsJson}
           onChangeText={(value) => updateForm("itemsJson", value)}
-          placeholder={saleItemsTemplate}
+          placeholder={saleItemsPlaceholder}
           multiline
           editable={!isOperationLocked}
         />
+        <Text style={styles.itemsJsonHelper}>
+          Campo tecnico. Si no lo necesitas, dejalo vacio.
+        </Text>
         <View style={styles.templateRow}>
           <Pressable
             style={[styles.templateButton, isOperationLocked && styles.controlDisabled]}
@@ -744,6 +748,11 @@ const styles = StyleSheet.create({
   templateRow: {
     flexDirection: "row",
     justifyContent: "flex-start",
+  },
+  itemsJsonHelper: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
   },
   templateButton: {
     borderWidth: 1,
