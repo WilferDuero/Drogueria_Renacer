@@ -31,6 +31,7 @@ export const ReviewsScreen = () => {
   const [clearingReviews, setClearingReviews] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const isOperationLocked = clearingReviews;
 
   const loadReviewsData = useCallback(async () => {
     setLoading(true);
@@ -158,16 +159,27 @@ export const ReviewsScreen = () => {
             loading={clearingReviews}
           />
         ) : null}
+        {clearingReviews ? (
+          <View style={styles.pendingActionBar}>
+            <ActivityIndicator color={theme.colors.primaryStrong} size="small" />
+            <Text style={styles.pendingActionText}>Eliminando resenas...</Text>
+          </View>
+        ) : null}
         <FormField
           label="Buscar resena"
           value={query}
           onChangeText={setQuery}
           placeholder="Nombre, telefono o comentario"
+          editable={!isOperationLocked}
         />
         <View style={styles.searchSummaryRow}>
           <Text style={styles.subtle}>Mostrando {filteredReviews.length} resenas</Text>
           {hasSearchQuery ? (
-            <Pressable style={styles.clearSearchButton} onPress={() => setQuery("")}>
+            <Pressable
+              style={[styles.clearSearchButton, isOperationLocked && styles.controlDisabled]}
+              onPress={() => setQuery("")}
+              disabled={isOperationLocked}
+            >
               <Text style={styles.clearSearchButtonText}>Limpiar busqueda</Text>
             </Pressable>
           ) : null}
@@ -254,6 +266,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
+  },
+  controlDisabled: {
+    opacity: 0.55,
+  },
+  pendingActionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(33,128,141,0.25)",
+    backgroundColor: "rgba(33,128,141,0.08)",
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  pendingActionText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
   clearSearchButton: {
     borderWidth: 1,

@@ -93,6 +93,7 @@ export const SalesScreen = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [expandedByKey, setExpandedByKey] = useState<Record<string, boolean>>({});
+  const isOperationLocked = saving || clearingSales;
 
   const loadSalesData = useCallback(async () => {
     setLoading(true);
@@ -176,6 +177,9 @@ export const SalesScreen = () => {
   const hasHistoryFilters = hasSearchQuery || datePreset !== "all" || hasDateRangeInput;
 
   const clearHistoryFilters = () => {
+    if (isOperationLocked) {
+      return;
+    }
     setQuery("");
     setDatePreset("all");
     setDateFrom("");
@@ -183,6 +187,9 @@ export const SalesScreen = () => {
   };
 
   const onCreateSale = async () => {
+    if (isOperationLocked) {
+      return;
+    }
     const total = toNumber(form.total, 0);
     if (total <= 0) {
       Alert.alert("Validacion", "El total debe ser mayor a 0.");
@@ -250,6 +257,9 @@ export const SalesScreen = () => {
   };
 
   const onExportSales = async () => {
+    if (isOperationLocked) {
+      return;
+    }
     const rows: Array<Array<unknown>> = [
       [
         "id",
@@ -285,6 +295,9 @@ export const SalesScreen = () => {
   };
 
   const onFillItemsTemplate = () => {
+    if (isOperationLocked) {
+      return;
+    }
     updateForm("itemsJson", saleItemsTemplate);
   };
 
@@ -292,30 +305,39 @@ export const SalesScreen = () => {
     <ScreenContainer>
       <SectionCard title="Registrar venta">
         <Text style={styles.subtle}>Puedes registrar ventas manuales para operaciones de mostrador.</Text>
-        <FormField label="Referencia (opcional)" value={form.refId} onChangeText={(value) => updateForm("refId", value)} />
+        <FormField
+          label="Referencia (opcional)"
+          value={form.refId}
+          onChangeText={(value) => updateForm("refId", value)}
+          editable={!isOperationLocked}
+        />
         <FormField
           label="Cliente"
           value={form.clienteNombre}
           onChangeText={(value) => updateForm("clienteNombre", value)}
           placeholder="Consumidor final"
+          editable={!isOperationLocked}
         />
         <FormField
           label="Telefono"
           value={form.clienteTelefono}
           onChangeText={(value) => updateForm("clienteTelefono", value)}
           keyboardType="phone-pad"
+          editable={!isOperationLocked}
         />
         <FormField
           label="Total *"
           value={form.total}
           onChangeText={(value) => updateForm("total", value)}
           keyboardType="numeric"
+          editable={!isOperationLocked}
         />
         <FormField
           label="Metodo de pago"
           value={form.metodoPago}
           onChangeText={(value) => updateForm("metodoPago", value)}
           placeholder="efectivo, nequi, daviplata..."
+          editable={!isOperationLocked}
         />
         <FormField
           label="Items JSON (opcional)"
@@ -323,9 +345,14 @@ export const SalesScreen = () => {
           onChangeText={(value) => updateForm("itemsJson", value)}
           placeholder={saleItemsTemplate}
           multiline
+          editable={!isOperationLocked}
         />
         <View style={styles.templateRow}>
-          <Pressable style={styles.templateButton} onPress={onFillItemsTemplate}>
+          <Pressable
+            style={[styles.templateButton, isOperationLocked && styles.controlDisabled]}
+            onPress={onFillItemsTemplate}
+            disabled={isOperationLocked}
+          >
             <Text style={styles.templateButtonText}>Usar plantilla JSON</Text>
           </Pressable>
         </View>
@@ -333,7 +360,7 @@ export const SalesScreen = () => {
           label="Guardar venta"
           onPress={() => void onCreateSale()}
           loading={saving}
-          disabled={clearingSales}
+          disabled={isOperationLocked}
         />
         {role === "owner" ? (
           <ActionButton
@@ -341,8 +368,14 @@ export const SalesScreen = () => {
             variant="danger"
             onPress={onClearSales}
             loading={clearingSales}
-            disabled={saving}
+            disabled={isOperationLocked}
           />
+        ) : null}
+        {clearingSales ? (
+          <View style={styles.pendingActionBar}>
+            <ActivityIndicator color={theme.colors.primaryStrong} size="small" />
+            <Text style={styles.pendingActionText}>Eliminando ventas...</Text>
+          </View>
         ) : null}
       </SectionCard>
 
@@ -404,7 +437,12 @@ export const SalesScreen = () => {
               <Pressable
                 key={button.value}
                 onPress={() => setDatePreset(button.value)}
-                style={[styles.filterButton, active && styles.filterButtonActive]}
+                style={[
+                  styles.filterButton,
+                  active && styles.filterButtonActive,
+                  isOperationLocked && styles.controlDisabled,
+                ]}
+                disabled={isOperationLocked}
               >
                 <Text style={[styles.filterButtonText, active && styles.filterButtonTextActive]}>
                   {button.label}
@@ -421,6 +459,7 @@ export const SalesScreen = () => {
                 value={dateFrom}
                 onChangeText={(value) => setDateFrom(sanitizeDateInput(value))}
                 placeholder="2026-02-01"
+                editable={!isOperationLocked}
               />
             </View>
             <View style={styles.dateRangeField}>
@@ -429,6 +468,7 @@ export const SalesScreen = () => {
                 value={dateTo}
                 onChangeText={(value) => setDateTo(sanitizeDateInput(value))}
                 placeholder="2026-02-28"
+                editable={!isOperationLocked}
               />
             </View>
           </View>
@@ -438,11 +478,16 @@ export const SalesScreen = () => {
           value={query}
           onChangeText={setQuery}
           placeholder="Ref, cliente, telefono o vendedor"
+          editable={!isOperationLocked}
         />
         <View style={styles.searchSummaryRow}>
           <Text style={styles.subtle}>Mostrando {filteredSales.length} ventas</Text>
           {hasHistoryFilters ? (
-            <Pressable style={styles.clearSearchButton} onPress={clearHistoryFilters}>
+            <Pressable
+              style={[styles.clearSearchButton, isOperationLocked && styles.controlDisabled]}
+              onPress={clearHistoryFilters}
+              disabled={isOperationLocked}
+            >
               <Text style={styles.clearSearchButtonText}>Limpiar filtros</Text>
             </Pressable>
           ) : null}
@@ -451,6 +496,7 @@ export const SalesScreen = () => {
           label="Exportar CSV"
           variant="secondary"
           onPress={() => void onExportSales()}
+          disabled={isOperationLocked}
         />
         {loading ? (
           <View style={styles.loadingRow}>
@@ -622,6 +668,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
+  },
+  controlDisabled: {
+    opacity: 0.55,
+  },
+  pendingActionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(33,128,141,0.25)",
+    backgroundColor: "rgba(33,128,141,0.08)",
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  pendingActionText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
   clearSearchButton: {
     borderWidth: 1,
