@@ -5,8 +5,9 @@ import {
 } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { listOrders } from "../api/modules/orders";
 import { ENV } from "../config/env";
 import { theme } from "../constants/theme";
 import { LoginScreen } from "../features/auth/LoginScreen";
@@ -174,7 +175,22 @@ const HeaderActions = () => {
 
 const AdminTabs = () => {
   const user = useAuthStore((state) => state.user);
+  const syncTick = useSyncStore((state) => state.syncTick);
   const isOwner = user?.role === "owner";
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  const loadPendingOrdersCount = useCallback(async () => {
+    try {
+      const rows = await listOrders("pendiente");
+      setPendingOrdersCount(rows.length);
+    } catch {
+      // keep last known badge value on transient errors
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPendingOrdersCount();
+  }, [loadPendingOrdersCount, syncTick]);
 
   return (
     <Tab.Navigator
@@ -192,13 +208,25 @@ const AdminTabs = () => {
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700", paddingBottom: 4 },
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons
-            name={tabIconByRoute[route.name as keyof AdminTabParamList]}
-            size={size}
-            color={color}
-          />
-        ),
+        tabBarIcon: ({ color, size }) => {
+          const isOrdersTab = route.name === "Pedidos";
+          return (
+            <View style={styles.tabIconWrap}>
+              <Ionicons
+                name={tabIconByRoute[route.name as keyof AdminTabParamList]}
+                size={size}
+                color={color}
+              />
+              {isOrdersTab && pendingOrdersCount > 0 ? (
+                <View style={styles.tabIconBadge}>
+                  <Text style={styles.tabIconBadgeText}>
+                    {pendingOrdersCount > 99 ? "99+" : pendingOrdersCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        },
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -244,6 +272,30 @@ export const AppNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  tabIconWrap: {
+    minWidth: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabIconBadge: {
+    position: "absolute",
+    right: -11,
+    top: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 9,
+    paddingHorizontal: 3,
+    backgroundColor: "#ef4444",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabIconBadgeText: {
+    color: theme.colors.white,
+    fontSize: 9,
+    fontWeight: "900",
+  },
   headerActions: {
     flexDirection: "row",
     gap: 8,
