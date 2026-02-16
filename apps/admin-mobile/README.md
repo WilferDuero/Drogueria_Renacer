@@ -142,6 +142,7 @@ npx expo run:ios
 - Auto logout por inactividad al volver desde background (configurable por entorno).
 - Validacion de estados permitidos de pedido en app:
   - `pendiente`, `aceptado`, `rechazado`, `cancelado`
+- Proteccion de usuarios: no permite degradar el ultimo `owner` a `staff`.
 - Push en backend se ejecuta en modo no bloqueante (si falla, no rompe pedidos/productos).
 
 ## Dev Client + USB (Android recomendado)

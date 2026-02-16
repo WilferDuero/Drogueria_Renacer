@@ -194,6 +194,13 @@ export const UsersScreen = () => {
       summary.push("Contrasena: se reemplazara.");
     }
     const riskyRoleDowngrade = editingUser.role === "owner" && payload.role === "staff";
+    if (riskyRoleDowngrade && userStats.owners <= 1) {
+      Alert.alert(
+        "Accion bloqueada",
+        "No puedes cambiar el ultimo owner a staff. Crea o promueve otro owner primero."
+      );
+      return;
+    }
 
     Alert.alert(
       riskyRoleDowngrade ? "Cambio sensible de rol" : "Confirmar cambios",

@@ -466,6 +466,20 @@ app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
 
   const { password, role, username } = req.body || {};
   const db = await dbPromise;
+  const targetUser = await db.get("SELECT id, role FROM users WHERE id = ?", [id]);
+  if (!targetUser) return res.status(404).json({ error: "Usuario no encontrado" });
+  const nextRoleRaw = role ? String(role).trim().toLowerCase() : "";
+  if (nextRoleRaw && !["owner", "staff"].includes(nextRoleRaw)) {
+    return res.status(400).json({ error: "Rol invalido" });
+  }
+  const currentRole = String(targetUser.role || "").trim().toLowerCase();
+  if (nextRoleRaw === "staff" && currentRole === "owner") {
+    const ownersRow = await db.get("SELECT COUNT(*) as c FROM users WHERE role = 'owner'");
+    const ownerCount = Number(ownersRow?.c ?? ownersRow?.count ?? 0);
+    if (ownerCount <= 1) {
+      return res.status(409).json({ error: "No se puede cambiar el ultimo owner a staff." });
+    }
+  }
 
   if (username && String(username).trim()) {
     const u = String(username).trim();
@@ -479,8 +493,8 @@ app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
     await db.run("UPDATE users SET passwordHash = ? WHERE id = ?", [hash, id]);
   }
 
-  if (role && ["owner", "staff"].includes(String(role))) {
-    await db.run("UPDATE users SET role = ? WHERE id = ?", [String(role), id]);
+  if (nextRoleRaw) {
+    await db.run("UPDATE users SET role = ? WHERE id = ?", [nextRoleRaw, id]);
   }
 
   res.json({ ok: true });
