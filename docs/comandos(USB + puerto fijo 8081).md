@@ -49,3 +49,10 @@ C:\platform-tools\adb.exe devices
 
 # Ver que 8081 esta escuchando
 Get-NetTCPConnection -LocalPort 8081 -State Listen
+
+# =============================
+# Flujo Git recomendado
+# =============================
+
+# Ver guia simple de ramas/commits/PR
+# docs/FLUJO_GIT_SIMPLE.md
