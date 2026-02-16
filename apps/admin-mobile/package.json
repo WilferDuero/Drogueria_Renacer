@@ -11,6 +11,9 @@
     "android": "expo run:android",
     "android:devclient": "expo run:android --device",
     "android:devclient:usb": "powershell -ExecutionPolicy Bypass -File ./scripts/android-devclient-usb.ps1",
+    "build:apk:preview": "npx eas-cli@latest build --platform android --profile preview",
+    "build:aab:production": "npx eas-cli@latest build --platform android --profile production",
+    "build:list": "npx eas-cli@latest build:list --platform android --limit 5",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"

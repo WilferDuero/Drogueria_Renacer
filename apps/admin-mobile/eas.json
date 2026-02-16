@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://drogueria-renacer.onrender.com",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "12000",
+        "EXPO_PUBLIC_SESSION_IDLE_TIMEOUT_MS": "1800000",
+        "EXPO_PUBLIC_AUTO_SYNC_INTERVAL_MS": "60000",
+        "EXPO_PUBLIC_EAS_PROJECT_ID": "66f62340-67f8-4e4f-823e-7037add6e13f"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://drogueria-renacer.onrender.com",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "12000",
+        "EXPO_PUBLIC_SESSION_IDLE_TIMEOUT_MS": "1800000",
+        "EXPO_PUBLIC_AUTO_SYNC_INTERVAL_MS": "60000",
+        "EXPO_PUBLIC_EAS_PROJECT_ID": "66f62340-67f8-4e4f-823e-7037add6e13f"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

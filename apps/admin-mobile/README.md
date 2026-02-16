@@ -136,6 +136,29 @@ cd apps/admin-mobile
 npx expo run:ios
 ```
 
+## APK con EAS (instalable)
+1. Login EAS (una sola vez por equipo):
+```bash
+cd apps/admin-mobile
+npx eas-cli@latest login
+```
+2. Generar APK de prueba (perfil `preview`):
+```bash
+cd apps/admin-mobile
+npm run build:apk:preview
+```
+3. Ver estado de builds Android:
+```bash
+cd apps/admin-mobile
+npm run build:list
+```
+4. Descargar e instalar APK desde el enlace que entrega EAS al terminar.
+
+Notas:
+- `preview` genera `.apk` para instalar manualmente y probar en telefono real.
+- `production` genera `.aab` para publicacion en Play Store.
+- La configuracion de EAS queda en `apps/admin-mobile/eas.json`.
+
 ## Seguridad y estabilidad
 - Token JWT solo en `expo-secure-store`.
 - Auto logout en 401 por interceptor.

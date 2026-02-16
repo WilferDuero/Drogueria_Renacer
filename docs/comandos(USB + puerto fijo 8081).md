@@ -56,3 +56,22 @@ Get-NetTCPConnection -LocalPort 8081 -State Listen
 
 # Ver guia simple de ramas/commits/PR
 # docs/FLUJO_GIT_SIMPLE.md
+
+
+# =============================
+# APK de prueba con EAS (instalable)
+# =============================
+
+# 7) Login en EAS (solo 1 vez)
+cd "c:\Users\Wilfer Duero\Desktop\Drogueria_Renacer - App-Movil\apps\admin-mobile"
+npx eas-cli@latest login
+
+# 8) Crear APK de prueba (perfil preview)
+# - Sube codigo y compila en la nube de Expo
+# - Al final te da un link para descargar el APK
+cd "c:\Users\Wilfer Duero\Desktop\Drogueria_Renacer - App-Movil\apps\admin-mobile"
+npm run build:apk:preview
+
+# 9) Ver los ultimos builds Android
+cd "c:\Users\Wilfer Duero\Desktop\Drogueria_Renacer - App-Movil\apps\admin-mobile"
+npm run build:list
