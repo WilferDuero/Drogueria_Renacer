@@ -234,12 +234,15 @@ async function listPushTokensByRoles(db, roles) {
   if (!roleList.length) return [];
   const placeholders = roleList.map(() => "?").join(",");
   const rows = await db.all(
-    `SELECT token FROM push_tokens WHERE active = 1 AND role IN (${placeholders})`,
+    `SELECT token, platform FROM push_tokens WHERE active = 1 AND role IN (${placeholders})`,
     roleList
   );
   return rows
-    .map((row) => String(row?.token || "").trim())
-    .filter((token) => token.length > 0);
+    .map((row) => ({
+      token: String(row?.token || "").trim(),
+      platform: String(row?.platform || "").trim().toLowerCase(),
+    }))
+    .filter((entry) => entry.token.length > 0);
 }
 
 async function disablePushTokens(db, tokens) {
@@ -331,19 +334,29 @@ async function sendExpoPushChunk(chunk) {
 
 async function sendPushToRoles({ roles, title, body, data = {} }) {
   const db = await dbPromise;
-  const tokens = await listPushTokensByRoles(db, roles);
-  if (!tokens.length) {
+  const pushDevices = await listPushTokensByRoles(db, roles);
+  if (!pushDevices.length) {
     return { sent: 0, inactive: 0 };
   }
 
-  const validTokens = [...new Set(tokens)].filter(isExpoPushToken);
-  if (!validTokens.length) {
+  const validPushDevices = pushDevices.filter((entry) => isExpoPushToken(entry.token));
+  if (!validPushDevices.length) {
     console.warn("[push] no hay tokens Expo validos activos para envio.");
     return { sent: 0, inactive: 0 };
   }
 
-  const messages = validTokens.map((token) => ({
-    to: token,
+  const uniqueDevices = [];
+  const seenTokens = new Set();
+  for (const entry of validPushDevices) {
+    if (seenTokens.has(entry.token)) continue;
+    seenTokens.add(entry.token);
+    uniqueDevices.push(entry);
+  }
+
+  const messages = uniqueDevices.map((entry) => ({
+    to: entry.token,
+    // Android requiere canal para mostrar notificaciones de forma consistente.
+    channelId: entry.platform === "android" ? "default" : undefined,
     sound: "default",
     priority: "high",
     title: String(title || "").slice(0, 120),
@@ -377,6 +390,9 @@ async function sendPushToRoles({ roles, title, body, data = {} }) {
   if (uniqueStale.length) {
     await disablePushTokens(db, uniqueStale);
   }
+  console.log(
+    `[push] roles=${sanitizePushRoleList(roles).join(",")} targets=${uniqueDevices.length} sent=${sent} inactive=${uniqueStale.length}`
+  );
   return { sent, inactive: uniqueStale.length };
 }
 
