@@ -50,6 +50,8 @@ export const UsersScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateUserState>(initialCreateForm);
   const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
   const [editForm, setEditForm] = useState<EditUserState>({
     username: "",
     password: "",
@@ -85,6 +87,21 @@ export const UsersScreen = () => {
     () => [...users].sort((a, b) => a.id - b.id),
     [users]
   );
+
+  const filteredUsers = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return sortedUsers.filter((user) => {
+      if (roleFilter !== "all" && user.role !== roleFilter) {
+        return false;
+      }
+      if (!term) {
+        return true;
+      }
+      return [user.username, user.role, String(user.id)].join(" ").toLowerCase().includes(term);
+    });
+  }, [sortedUsers, query, roleFilter]);
+
+  const hasUserFilters = query.trim().length > 0 || roleFilter !== "all";
 
   const userStats = useMemo(() => {
     const total = users.length;
@@ -166,17 +183,45 @@ export const UsersScreen = () => {
       closeEditModal();
       return;
     }
-    setSaving(true);
-    try {
-      await updateUser(editingUser.id, payload);
-      closeEditModal();
-      await loadUsersData();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "No fue posible actualizar usuario.";
-      Alert.alert("Error", message);
-    } finally {
-      setSaving(false);
+    const summary: string[] = [];
+    if (payload.username) {
+      summary.push(`Usuario: ${editingUser.username} -> ${payload.username}`);
     }
+    if (payload.role) {
+      summary.push(`Rol: ${editingUser.role} -> ${payload.role}`);
+    }
+    if (payload.password) {
+      summary.push("Contrasena: se reemplazara.");
+    }
+    const riskyRoleDowngrade = editingUser.role === "owner" && payload.role === "staff";
+
+    Alert.alert(
+      riskyRoleDowngrade ? "Cambio sensible de rol" : "Confirmar cambios",
+      `${summary.join("\n")}\n\n${
+        riskyRoleDowngrade
+          ? "Advertencia: este usuario perdera permisos owner."
+          : "Deseas guardar estos cambios?"
+      }`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Guardar",
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await updateUser(editingUser.id, payload);
+              closeEditModal();
+              await loadUsersData();
+            } catch (e) {
+              const message = e instanceof Error ? e.message : "No fue posible actualizar usuario.";
+              Alert.alert("Error", message);
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!isOwner) {
@@ -266,6 +311,67 @@ export const UsersScreen = () => {
             />
           </View>
         </View>
+        <FormField
+          label="Buscar usuario"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Usuario, rol o ID"
+        />
+        <View style={styles.filterRow}>
+          <Pressable
+            style={[styles.filterButton, roleFilter === "all" && styles.filterButtonActive]}
+            onPress={() => setRoleFilter("all")}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                roleFilter === "all" && styles.filterButtonTextActive,
+              ]}
+            >
+              Todos
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterButton, roleFilter === "owner" && styles.filterButtonActive]}
+            onPress={() => setRoleFilter("owner")}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                roleFilter === "owner" && styles.filterButtonTextActive,
+              ]}
+            >
+              Owner
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterButton, roleFilter === "staff" && styles.filterButtonActive]}
+            onPress={() => setRoleFilter("staff")}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                roleFilter === "staff" && styles.filterButtonTextActive,
+              ]}
+            >
+              Staff
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.filterSummaryRow}>
+          <Text style={styles.subtle}>Mostrando {filteredUsers.length} usuarios</Text>
+          {hasUserFilters ? (
+            <Pressable
+              style={styles.clearFilterButton}
+              onPress={() => {
+                setQuery("");
+                setRoleFilter("all");
+              }}
+            >
+              <Text style={styles.clearFilterButtonText}>Limpiar filtros</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={theme.colors.primary} />
@@ -273,10 +379,17 @@ export const UsersScreen = () => {
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {!loading && sortedUsers.length === 0 ? (
-          <EmptyState title="Sin usuarios" subtitle="No hay usuarios para mostrar." />
+        {!loading && filteredUsers.length === 0 ? (
+          <EmptyState
+            title="Sin usuarios"
+            subtitle={
+              hasUserFilters
+                ? "No hay usuarios para los filtros seleccionados."
+                : "No hay usuarios para mostrar."
+            }
+          />
         ) : null}
-        {sortedUsers.map((user) => (
+        {filteredUsers.map((user) => (
           <SectionCard key={user.id}>
             <View style={styles.userTopRow}>
               <View style={styles.userInfo}>
@@ -379,6 +492,50 @@ const styles = StyleSheet.create({
   statsItem: {
     flex: 1,
     minWidth: 110,
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: theme.colors.surface,
+  },
+  filterButtonActive: {
+    borderColor: "rgba(33,128,141,0.4)",
+    backgroundColor: "rgba(33,128,141,0.12)",
+  },
+  filterButtonText: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filterButtonTextActive: {
+    color: theme.colors.primaryStrong,
+  },
+  filterSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+  },
+  clearFilterButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearFilterButtonText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
   roleRow: {
     flexDirection: "row",
