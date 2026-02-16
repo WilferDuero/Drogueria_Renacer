@@ -198,6 +198,14 @@ export const ReviewsScreen = () => {
           ) : null}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar resenas"
+            variant="secondary"
+            onPress={() => void onRefreshReviews()}
+            disabled={isOperationLocked || refreshing}
+          />
+        ) : null}
       </SectionCard>
 
       {loading ? (

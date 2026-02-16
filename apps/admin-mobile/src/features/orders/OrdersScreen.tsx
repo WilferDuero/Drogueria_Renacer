@@ -1043,6 +1043,14 @@ export const OrdersScreen = () => {
           disabled={!!activeCriticalAction}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar pedidos"
+            variant="secondary"
+            onPress={() => void onRefreshOrders()}
+            disabled={!!activeCriticalAction || refreshing}
+          />
+        ) : null}
       </SectionCard>
 
       {loading ? (

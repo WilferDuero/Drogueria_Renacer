@@ -537,6 +537,14 @@ export const ProductsScreen = () => {
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar productos"
+            variant="secondary"
+            onPress={() => void onRefreshProducts()}
+            disabled={hasPendingMutation || saving || refreshing}
+          />
+        ) : null}
       </SectionCard>
 
       {loading ? (

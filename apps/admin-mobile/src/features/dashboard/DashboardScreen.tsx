@@ -311,6 +311,14 @@ export const DashboardScreen = () => {
           />
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar carga"
+            variant="secondary"
+            onPress={() => void onRefreshDashboard()}
+            disabled={refreshing}
+          />
+        ) : null}
         <ActionButton label="Sincronizar ahora" onPress={triggerSync} />
         {lastManualSyncAt ? (
           <Text style={styles.syncLabel}>

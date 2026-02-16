@@ -783,6 +783,14 @@ export const SalesScreen = () => {
             <Text style={styles.assistedTotalText}>Total asistido: {formatCurrencyCOP(assistedTotal)}</Text>
           ) : null}
           {catalogError ? <Text style={styles.error}>{catalogError}</Text> : null}
+          {catalogError ? (
+            <ActionButton
+              label="Reintentar catalogo"
+              variant="secondary"
+              onPress={() => void onRefreshSales()}
+              disabled={isOperationLocked || refreshing}
+            />
+          ) : null}
         </View>
         <FormField
           label="Total *"
@@ -1051,6 +1059,14 @@ export const SalesScreen = () => {
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar ventas"
+            variant="secondary"
+            onPress={() => void onRefreshSales()}
+            disabled={isOperationLocked || refreshing}
+          />
+        ) : null}
         {!loading && filteredSales.length === 0 ? (
           <EmptyState
             title="Sin ventas"

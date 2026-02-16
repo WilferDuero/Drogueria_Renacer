@@ -399,6 +399,14 @@ export const UsersScreen = () => {
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <ActionButton
+            label="Reintentar usuarios"
+            variant="secondary"
+            onPress={() => void onRefreshUsers()}
+            disabled={saving || refreshing}
+          />
+        ) : null}
         {!loading && filteredUsers.length === 0 ? (
           <EmptyState
             title="Sin usuarios"
