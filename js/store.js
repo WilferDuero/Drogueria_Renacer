@@ -985,9 +985,12 @@ function updateMyOrdersCount() {
   const orders = loadOrders();
   const saved = typeof loadCustomer === "function" ? loadCustomer() : {};
   const phone = normPhoneDigits(saved?.telefono || "");
-  const hasAdminToken = !!localStorage.getItem(STORE_ADMIN_TOKEN_KEY);
-  const filtered = phone ? orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phone) : orders;
-  badge.textContent = String(hasAdminToken && !phone ? 0 : filtered.length);
+  if (!phone) {
+    badge.textContent = "0";
+    return;
+  }
+  const filtered = orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phone);
+  badge.textContent = String(filtered.length);
 }
 
 function buildClientOrderCard(order) {
@@ -1077,22 +1080,19 @@ function renderMyOrders() {
 
   const savedCustomer = loadCustomer();
   const savedPhone = normPhoneDigits(savedCustomer.telefono || "");
-  const hasAdminToken = !!localStorage.getItem(STORE_ADMIN_TOKEN_KEY);
 
   let phoneToUse = normPhoneDigits(phoneInput?.value || "");
-  if (onlyMineChk?.checked && !phoneToUse && savedPhone) phoneToUse = savedPhone;
+  if (!phoneToUse && savedPhone) phoneToUse = savedPhone;
 
   let orders = loadOrders();
   if (filter !== "all") orders = orders.filter((o) => String(o.estado) === filter);
 
-  if (hasAdminToken && !phoneToUse) {
-    list.innerHTML = `<div class="box"><p class="muted" style="margin:0;">Escribe tu teléfono o activa “Solo mis pedidos” para ver tus pedidos.</p></div>`;
+  if (!phoneToUse) {
+    list.innerHTML = `<div class="box"><p class="muted" style="margin:0;">Escribe tu teléfono para ver tus pedidos.</p></div>`;
     return;
   }
 
-  if (onlyMineChk?.checked || phoneToUse) {
-    orders = orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phoneToUse);
-  }
+  orders = orders.filter((o) => normPhoneDigits(o?.cliente?.telefono) === phoneToUse);
 
   list.innerHTML = "";
   if (!orders.length) {
@@ -1126,10 +1126,8 @@ function renderMyOrders() {
       openModal("myOrdersModal");
 
       await retryUnsyncedOrders();
-      let phoneForSync = normPhoneDigits(phoneInput?.value || "");
-      if (!phoneForSync && onlyMineChk?.checked) {
-        phoneForSync = normPhoneDigits(saved.telefono || "");
-      }
+      const phoneForSync =
+        normPhoneDigits(phoneInput?.value || "") || normPhoneDigits(saved.telefono || "");
       const synced = await trySyncOrdersFromApi(phoneForSync);
       if (synced) {
         updateMyOrdersCount();
@@ -1141,7 +1139,9 @@ function renderMyOrders() {
   closeBtn?.addEventListener("click", () => closeModal("myOrdersModal"));
   refreshBtn?.addEventListener("click", async () => {
     await retryUnsyncedOrders();
-    const phoneForSync = normPhoneDigits(phoneInput?.value || "");
+    const saved = loadCustomer();
+    const phoneForSync =
+      normPhoneDigits(phoneInput?.value || "") || normPhoneDigits(saved.telefono || "");
     await trySyncOrdersFromApi(phoneForSync);
     updateMyOrdersCount();
     renderMyOrders();
