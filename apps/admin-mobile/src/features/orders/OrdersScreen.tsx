@@ -57,6 +57,7 @@ import {
 type FilterValue = "all" | OrderStatus;
 type OrderDatePreset = "all" | "today" | "last7" | "range";
 type ItemSelectionMap = Record<string, Record<string, boolean>>;
+type CriticalOrderAction = "accept" | "reject" | "cancel";
 
 const statusToneMap: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   pendiente: "warning",
@@ -79,6 +80,19 @@ const dateFilterButtons: Array<{ label: string; value: OrderDatePreset }> = [
   { label: "7 dias", value: "last7" },
   { label: "Rango", value: "range" },
 ];
+
+const getCriticalActionProgressText = (action: CriticalOrderAction | null) => {
+  if (action === "accept") {
+    return "Aceptando";
+  }
+  if (action === "reject") {
+    return "Rechazando";
+  }
+  if (action === "cancel") {
+    return "Cancelando";
+  }
+  return "Procesando";
+};
 
 const getOrderKey = (order: Order) => String(order.externalId || order.id);
 const getOrderItemKey = (item: OrderItem, index: number) =>
@@ -298,9 +312,8 @@ export const OrdersScreen = () => {
   const [dateTo, setDateTo] = useState("");
   const [selectedItemsByOrder, setSelectedItemsByOrder] = useState<ItemSelectionMap>({});
   const [ledgerByOrder, setLedgerByOrder] = useState<Record<string, OrderLedgerEntry>>({});
-  const [activeCriticalAction, setActiveCriticalAction] = useState<"accept" | "reject" | "cancel" | null>(
-    null
-  );
+  const [activeCriticalAction, setActiveCriticalAction] = useState<CriticalOrderAction | null>(null);
+  const [activeOrderKey, setActiveOrderKey] = useState<string | null>(null);
   const [activeOrderLabel, setActiveOrderLabel] = useState<string | null>(null);
 
   const loadOrdersData = useCallback(async () => {
@@ -719,7 +732,7 @@ export const OrdersScreen = () => {
     });
   };
 
-  const runOrderAction = (order: Order, action: "accept" | "reject" | "cancel") => {
+  const runOrderAction = (order: Order, action: CriticalOrderAction) => {
     if (pendingStatusById[getOrderKey(order)]) {
       return;
     }
@@ -750,6 +763,7 @@ export const OrdersScreen = () => {
         style: action === "reject" || action === "cancel" ? "destructive" : "default",
         onPress: async () => {
           setActiveCriticalAction(action);
+          setActiveOrderKey(getOrderKey(order));
           setActiveOrderLabel(orderLabel);
           setRowPending(order, true);
           try {
@@ -768,6 +782,7 @@ export const OrdersScreen = () => {
           } finally {
             setRowPending(order, false);
             setActiveCriticalAction(null);
+            setActiveOrderKey(null);
             setActiveOrderLabel(null);
           }
         },
@@ -873,7 +888,7 @@ export const OrdersScreen = () => {
           <View style={styles.processingBanner}>
             <ActivityIndicator size="small" color={theme.colors.primaryStrong} />
             <Text style={styles.processingBannerText}>
-              Procesando pedido {activeOrderLabel || "--"}...
+              {getCriticalActionProgressText(activeCriticalAction)} pedido {activeOrderLabel || "--"}...
             </Text>
           </View>
         ) : null}
@@ -1042,6 +1057,9 @@ export const OrdersScreen = () => {
         renderItem={({ item }) => {
           const orderKey = getOrderKey(item);
           const rowLoading = !!pendingStatusById[orderKey];
+          const rowIsActive = rowLoading && activeOrderKey === orderKey;
+          const rowLockedByOtherAction = !!activeCriticalAction && !rowIsActive;
+          const rowActionInProgress = rowIsActive ? activeCriticalAction : null;
           const estado = String(item.estado || "").toLowerCase();
           const externalRef = String(item.externalId || item.id || "local");
           const externalRefShort =
@@ -1059,219 +1077,240 @@ export const OrdersScreen = () => {
           const rejectedCountFromLedger = ledger?.rejectedItems?.length || 0;
           const isPartialAccepted =
             estado === "aceptado" && !!ledger && rejectedCountFromLedger > 0;
+          const canEditItems = estado === "pendiente" && !activeCriticalAction;
           return (
             <SectionCard>
-              <View style={styles.orderHeaderShell}>
-                <View style={styles.orderHeader}>
-                  <View style={styles.orderInfo}>
-                    <View style={styles.orderTitleRow}>
-                      <Text style={styles.orderId}>Pedido {item.id}</Text>
-                    </View>
-                    <Text style={styles.orderMeta}>
-                      {item.clienteNombre || "Sin nombre"} - {item.clienteTelefono || "Sin telefono"}
-                    </Text>
-                    {item.clienteDireccion ? (
-                      <Text style={styles.orderMeta}>{item.clienteDireccion}</Text>
-                    ) : null}
-                    <View style={styles.orderChipsRow}>
-                      <View style={[styles.orderChip, styles.orderChipExt]}>
-                        <Ionicons
-                          name="link-outline"
-                          size={13}
-                          color={theme.colors.primaryStrong}
-                        />
-                        <Text
-                          style={[styles.orderChipText, styles.orderChipExtText]}
-                          numberOfLines={1}
-                          ellipsizeMode="middle"
-                        >
-                          {item.externalId ? `Ext ${externalRefShort}` : "Local"}
-                        </Text>
+              <View
+                style={[
+                  styles.orderCardBody,
+                  rowIsActive && styles.orderCardBodyProcessing,
+                  rowLockedByOtherAction && styles.orderCardBodyLocked,
+                ]}
+              >
+                <View style={styles.orderHeaderShell}>
+                  <View style={styles.orderHeader}>
+                    <View style={styles.orderInfo}>
+                      <View style={styles.orderTitleRow}>
+                        <Text style={styles.orderId}>Pedido {item.id}</Text>
                       </View>
-                      <View style={styles.orderChip}>
-                        <Ionicons
-                          name="calendar-outline"
-                          size={13}
-                          color={theme.colors.primaryStrong}
-                        />
-                        <Text style={styles.orderChipText}>{formatDateTime(item.createdAt)}</Text>
-                      </View>
-                      <View style={styles.orderChip}>
-                        <Ionicons
-                          name="list-outline"
-                          size={13}
-                          color={theme.colors.primaryStrong}
-                        />
-                        <Text style={styles.orderChipText}>{totalItems} items</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.orderStatus}>
-                    <StatusBadge text={estado} tone={statusToneMap[estado] || "neutral"} />
-                    {isPartialAccepted ? <StatusBadge text="parcial" tone="warning" /> : null}
-                    <Text style={styles.totalLabel}>Total</Text>
-                    <Text style={styles.total}>{formatCurrencyCOP(item.total)}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {estado === "aceptado" && ledger ? (
-                <View style={styles.ledgerRow}>
-                  <Text style={styles.ledgerText}>
-                    Aceptados: {acceptedCountFromLedger}/{item.items.length}
-                  </Text>
-                  {rejectedCountFromLedger ? (
-                    <Text style={styles.ledgerText}>Rechazados: {rejectedCountFromLedger}</Text>
-                  ) : null}
-                  <Text style={styles.ledgerText}>
-                    Total aceptado: {formatCurrencyCOP(ledger.totalAccepted || item.total)}
-                  </Text>
-                  <Text style={styles.ledgerText}>
-                    Procesado: {formatDateTime(ledger.processedAtISO)}
-                  </Text>
-                </View>
-              ) : null}
-
-              {estado === "cancelado" && ledger?.canceledAtISO ? (
-                <Text style={styles.ledgerText}>
-                  Cancelado y stock revertido: {formatDateTime(ledger.canceledAtISO)}
-                </Text>
-              ) : null}
-
-              {(item.items || []).length ? (
-                <View style={styles.itemsContainer}>
-                  {(item.items || []).map((orderItem, index) => {
-                    const itemKey = getOrderItemKey(orderItem, index);
-                    const selected = selection[itemKey] ?? true;
-                    const isPending = estado === "pendiente";
-                    return (
-                      <Pressable
-                        key={itemKey}
-                        disabled={!isPending}
-                        onPress={() => toggleItemSelection(item, orderItem, index)}
-                        style={[
-                          styles.itemRow,
-                          isPending && selected && styles.itemSelected,
-                          isPending && !selected && styles.itemUnselected,
-                        ]}
-                      >
-                        <View style={styles.itemLeft}>
+                      <Text style={styles.orderMeta}>
+                        {item.clienteNombre || "Sin nombre"} - {item.clienteTelefono || "Sin telefono"}
+                      </Text>
+                      {item.clienteDireccion ? (
+                        <Text style={styles.orderMeta}>{item.clienteDireccion}</Text>
+                      ) : null}
+                      <View style={styles.orderChipsRow}>
+                        <View style={[styles.orderChip, styles.orderChipExt]}>
                           <Ionicons
-                            name={
-                              isPending
-                                ? selected
-                                  ? "checkmark-circle"
-                                  : "close-circle"
-                                : "ellipse"
-                            }
-                            size={16}
-                            color={
-                              isPending
-                                ? selected
-                                  ? theme.colors.success
-                                  : theme.colors.danger
-                                : theme.colors.textMuted
-                            }
+                            name="link-outline"
+                            size={13}
+                            color={theme.colors.primaryStrong}
                           />
-                          <View style={styles.itemInfo}>
-                            <Text style={styles.itemTitle}>
-                              {orderItem.nombre} ({orderItem.presentacion})
-                            </Text>
-                            <Text style={styles.itemMeta}>
-                              {formatCurrencyCOP(orderItem.precioUnit)} x {orderItem.cantidad}
-                            </Text>
+                          <Text
+                            style={[styles.orderChipText, styles.orderChipExtText]}
+                            numberOfLines={1}
+                            ellipsizeMode="middle"
+                          >
+                            {item.externalId ? `Ext ${externalRefShort}` : "Local"}
+                          </Text>
+                        </View>
+                        <View style={styles.orderChip}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={13}
+                            color={theme.colors.primaryStrong}
+                          />
+                          <Text style={styles.orderChipText}>{formatDateTime(item.createdAt)}</Text>
+                        </View>
+                        <View style={styles.orderChip}>
+                          <Ionicons
+                            name="list-outline"
+                            size={13}
+                            color={theme.colors.primaryStrong}
+                          />
+                          <Text style={styles.orderChipText}>{totalItems} items</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.orderStatus}>
+                      <View style={styles.orderStatusBadges}>
+                        <StatusBadge text={estado} tone={statusToneMap[estado] || "neutral"} />
+                        {isPartialAccepted ? <StatusBadge text="parcial" tone="warning" /> : null}
+                        {rowIsActive ? <StatusBadge text="procesando" tone="neutral" /> : null}
+                      </View>
+                      <Text style={styles.totalLabel}>Total</Text>
+                      <Text style={styles.total}>{formatCurrencyCOP(item.total)}</Text>
+                    </View>
+                  </View>
+                </View>
+                {rowIsActive ? (
+                  <View style={styles.rowProcessingInline}>
+                    <ActivityIndicator size="small" color={theme.colors.primaryStrong} />
+                    <Text style={styles.rowProcessingInlineText}>
+                      {getCriticalActionProgressText(rowActionInProgress)} este pedido...
+                    </Text>
+                  </View>
+                ) : null}
+
+                {estado === "aceptado" && ledger ? (
+                  <View style={styles.ledgerRow}>
+                    <Text style={styles.ledgerText}>
+                      Aceptados: {acceptedCountFromLedger}/{item.items.length}
+                    </Text>
+                    {rejectedCountFromLedger ? (
+                      <Text style={styles.ledgerText}>Rechazados: {rejectedCountFromLedger}</Text>
+                    ) : null}
+                    <Text style={styles.ledgerText}>
+                      Total aceptado: {formatCurrencyCOP(ledger.totalAccepted || item.total)}
+                    </Text>
+                    <Text style={styles.ledgerText}>
+                      Procesado: {formatDateTime(ledger.processedAtISO)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {estado === "cancelado" && ledger?.canceledAtISO ? (
+                  <Text style={styles.ledgerText}>
+                    Cancelado y stock revertido: {formatDateTime(ledger.canceledAtISO)}
+                  </Text>
+                ) : null}
+
+                {(item.items || []).length ? (
+                  <View style={styles.itemsContainer}>
+                    {(item.items || []).map((orderItem, index) => {
+                      const itemKey = getOrderItemKey(orderItem, index);
+                      const selected = selection[itemKey] ?? true;
+                      const isPending = estado === "pendiente";
+                      return (
+                        <Pressable
+                          key={itemKey}
+                          disabled={!canEditItems}
+                          onPress={() => toggleItemSelection(item, orderItem, index)}
+                          style={[
+                            styles.itemRow,
+                            isPending && selected && styles.itemSelected,
+                            isPending && !selected && styles.itemUnselected,
+                            isPending && !canEditItems && styles.controlDisabled,
+                          ]}
+                        >
+                          <View style={styles.itemLeft}>
+                            <Ionicons
+                              name={
+                                isPending
+                                  ? selected
+                                    ? "checkmark-circle"
+                                    : "close-circle"
+                                  : "ellipse"
+                              }
+                              size={16}
+                              color={
+                                isPending
+                                  ? selected
+                                    ? theme.colors.success
+                                    : theme.colors.danger
+                                  : theme.colors.textMuted
+                              }
+                            />
+                            <View style={styles.itemInfo}>
+                              <Text style={styles.itemTitle}>
+                                {orderItem.nombre} ({orderItem.presentacion})
+                              </Text>
+                              <Text style={styles.itemMeta}>
+                                {formatCurrencyCOP(orderItem.precioUnit)} x {orderItem.cantidad}
+                              </Text>
+                            </View>
                           </View>
+                          <View style={styles.itemRight}>
+                            <Text style={styles.itemSubtotal}>{formatCurrencyCOP(orderItem.subtotal)}</Text>
+                            {isPending ? (
+                              <Text
+                                style={[
+                                  styles.itemSelectionLabel,
+                                  selected
+                                    ? styles.itemSelectionLabelAccepted
+                                    : styles.itemSelectionLabelRejected,
+                                ]}
+                              >
+                                {selected ? "Aceptado" : "Rechazado"}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                    {estado === "pendiente" ? (
+                      <>
+                        <View style={styles.bulkActionsRow}>
+                          <Pressable
+                            style={[styles.bulkActionButton, !!activeCriticalAction && styles.controlDisabled]}
+                            disabled={!!activeCriticalAction}
+                            onPress={() => setAllItemsSelection(item, true)}
+                          >
+                            <Text style={styles.bulkActionLabel}>Aceptar todo</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.bulkActionButton, !!activeCriticalAction && styles.controlDisabled]}
+                            disabled={!!activeCriticalAction}
+                            onPress={() => setAllItemsSelection(item, false)}
+                          >
+                            <Text style={styles.bulkActionLabel}>Rechazar todo</Text>
+                          </Pressable>
                         </View>
-                        <View style={styles.itemRight}>
-                          <Text style={styles.itemSubtotal}>{formatCurrencyCOP(orderItem.subtotal)}</Text>
-                          {isPending ? (
-                            <Text
-                              style={[
-                                styles.itemSelectionLabel,
-                                selected
-                                  ? styles.itemSelectionLabelAccepted
-                                  : styles.itemSelectionLabelRejected,
-                              ]}
-                            >
-                              {selected ? "Aceptado" : "Rechazado"}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+                        <Text style={styles.pendingHelper}>
+                          Items aceptados para procesar: {acceptedCount}/{item.items.length}
+                        </Text>
+                      </>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                <View style={styles.actionsRow}>
                   {estado === "pendiente" ? (
                     <>
-                      <View style={styles.bulkActionsRow}>
-                        <Pressable
-                          style={[styles.bulkActionButton, !!activeCriticalAction && styles.controlDisabled]}
-                          disabled={!!activeCriticalAction}
-                          onPress={() => setAllItemsSelection(item, true)}
-                        >
-                          <Text style={styles.bulkActionLabel}>Aceptar todo</Text>
-                        </Pressable>
-                        <Pressable
-                          style={[styles.bulkActionButton, !!activeCriticalAction && styles.controlDisabled]}
-                          disabled={!!activeCriticalAction}
-                          onPress={() => setAllItemsSelection(item, false)}
-                        >
-                          <Text style={styles.bulkActionLabel}>Rechazar todo</Text>
-                        </Pressable>
+                      <View style={styles.actionItem}>
+                        <ActionButton
+                          label="Aceptar"
+                          onPress={() => runOrderAction(item, "accept")}
+                          loading={rowActionInProgress === "accept"}
+                          disabled={rowLockedByOtherAction || !!rowActionInProgress}
+                        />
                       </View>
-                      <Text style={styles.pendingHelper}>
-                        Items aceptados para procesar: {acceptedCount}/{item.items.length}
-                      </Text>
+                      <View style={styles.actionItem}>
+                        <ActionButton
+                          label="Rechazar"
+                          variant="danger"
+                          onPress={() => runOrderAction(item, "reject")}
+                          loading={rowActionInProgress === "reject"}
+                          disabled={rowLockedByOtherAction || !!rowActionInProgress}
+                        />
+                      </View>
                     </>
                   ) : null}
-                </View>
-              ) : null}
 
-              <View style={styles.actionsRow}>
-                {estado === "pendiente" ? (
-                  <>
+                  {estado === "aceptado" ? (
                     <View style={styles.actionItem}>
                       <ActionButton
-                        label="Aceptar"
-                        onPress={() => runOrderAction(item, "accept")}
-                        loading={rowLoading}
-                        disabled={!!activeCriticalAction && !rowLoading}
-                      />
-                    </View>
-                    <View style={styles.actionItem}>
-                      <ActionButton
-                        label="Rechazar"
+                        label="Cancelar (revertir stock)"
                         variant="danger"
-                        onPress={() => runOrderAction(item, "reject")}
-                        loading={rowLoading}
-                        disabled={!!activeCriticalAction && !rowLoading}
+                        onPress={() => runOrderAction(item, "cancel")}
+                        loading={rowActionInProgress === "cancel"}
+                        disabled={rowLockedByOtherAction || !!rowActionInProgress}
                       />
                     </View>
-                  </>
-                ) : null}
-
-                {estado === "aceptado" ? (
-                  <View style={styles.actionItem}>
-                    <ActionButton
-                      label="Cancelar (revertir stock)"
-                      variant="danger"
-                      onPress={() => runOrderAction(item, "cancel")}
-                      loading={rowLoading}
-                      disabled={!!activeCriticalAction && !rowLoading}
-                    />
-                  </View>
-                ) : null}
+                  ) : null}
+                </View>
+                <Pressable
+                  style={[
+                    styles.whatsappButton,
+                    (rowLoading || !!activeCriticalAction) && styles.whatsappButtonDisabled,
+                  ]}
+                  onPress={() => onManualWhatsapp(item)}
+                  disabled={rowLoading || !!activeCriticalAction}
+                >
+                  <Ionicons name="logo-whatsapp" size={16} color={theme.colors.success} />
+                  <Text style={styles.whatsappButtonLabel}>WhatsApp cliente</Text>
+                </Pressable>
               </View>
-              <Pressable
-                style={[
-                  styles.whatsappButton,
-                  (rowLoading || !!activeCriticalAction) && styles.whatsappButtonDisabled,
-                ]}
-                onPress={() => onManualWhatsapp(item)}
-                disabled={rowLoading || !!activeCriticalAction}
-              >
-                <Ionicons name="logo-whatsapp" size={16} color={theme.colors.success} />
-                <Text style={styles.whatsappButtonLabel}>WhatsApp cliente</Text>
-              </Pressable>
             </SectionCard>
           );
         }}
@@ -1394,6 +1433,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
     alignItems: "flex-start",
+    flexWrap: "wrap",
+  },
+  orderCardBody: {
+    gap: 10,
+  },
+  orderCardBodyProcessing: {
+    borderWidth: 1,
+    borderColor: "rgba(11,99,208,0.25)",
+    borderRadius: theme.radius.sm,
+    padding: 8,
+    backgroundColor: "rgba(11,99,208,0.04)",
+  },
+  orderCardBodyLocked: {
+    opacity: 0.7,
   },
   orderInfo: {
     flex: 1,
@@ -1409,6 +1462,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 6,
     minWidth: 112,
+    maxWidth: "46%",
+  },
+  orderStatusBadges: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 6,
   },
   orderId: {
     fontSize: 17,
@@ -1581,5 +1641,21 @@ const styles = StyleSheet.create({
     color: "#166534",
     fontWeight: "800",
     fontSize: 13,
+  },
+  rowProcessingInline: {
+    borderWidth: 1,
+    borderColor: "rgba(11,99,208,0.22)",
+    borderRadius: theme.radius.sm,
+    backgroundColor: "rgba(11,99,208,0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  rowProcessingInlineText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
