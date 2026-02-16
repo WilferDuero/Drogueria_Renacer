@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -16,6 +17,8 @@ import { ENV } from "../../config/env";
 
 export const LoginScreen = () => {
   const login = useAuthStore((state) => state.login);
+  const authNotice = useAuthStore((state) => state.authNotice);
+  const consumeAuthNotice = useAuthStore((state) => state.consumeAuthNotice);
   const isLoginPending = useAuthStore((state) => state.isLoginPending);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -57,6 +60,14 @@ export const LoginScreen = () => {
 
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>Acceso restringido</Text>
+        {authNotice ? (
+          <View style={styles.noticeRow}>
+            <Text style={styles.noticeText}>{authNotice}</Text>
+            <Pressable onPress={consumeAuthNotice} style={styles.noticeCloseButton}>
+              <Text style={styles.noticeCloseText}>X</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <FormField
           label="Usuario"
           value={username}
@@ -148,6 +159,35 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderColor: "rgba(239,68,68,0.25)",
+  },
+  noticeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+    backgroundColor: "rgba(245,158,11,0.1)",
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  noticeText: {
+    color: "#854d0e",
+    fontSize: 12,
+    fontWeight: "800",
+    flex: 1,
+  },
+  noticeCloseButton: {
+    minWidth: 20,
+    minHeight: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noticeCloseText: {
+    color: "#854d0e",
+    fontSize: 12,
+    fontWeight: "900",
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

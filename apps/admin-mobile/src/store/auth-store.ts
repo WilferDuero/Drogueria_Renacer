@@ -12,17 +12,20 @@ interface AuthState {
   status: AuthStatus;
   user: AuthUser | null;
   token: string | null;
+  authNotice: string | null;
   isBootstrapping: boolean;
   isLoginPending: boolean;
   bootstrap: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (options?: { skipPushUnregister?: boolean; notice?: string | null }) => Promise<void>;
+  consumeAuthNotice: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "checking",
   user: null,
   token: null,
+  authNotice: null,
   isBootstrapping: false,
   isLoginPending: false,
 
@@ -36,13 +39,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const token = await tokenStorage.get();
       if (!token) {
         setActivePushToken(null);
-        set({ status: "unauthenticated", user: null, token: null });
+        set({ status: "unauthenticated", user: null, token: null, authNotice: null });
         return;
       }
 
       set({ token });
       const user = await fetchAuthMe();
-      set({ status: "authenticated", user, token });
+      set({ status: "authenticated", user, token, authNotice: null });
     } catch {
       setActivePushToken(null);
       await tokenStorage.clear();
@@ -61,21 +64,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         status: "authenticated",
         token: result.token,
         user: result.user,
+        authNotice: null,
       });
     } finally {
       set({ isLoginPending: false });
     }
   },
 
-  logout: async () => {
+  logout: async (options) => {
+    const skipPushUnregister = !!options?.skipPushUnregister;
+    const notice = options?.notice;
     const activePushToken = getActivePushToken();
-    if (activePushToken) {
+    if (!skipPushUnregister && activePushToken) {
       try {
         await unregisterPushDevice(activePushToken);
       } catch {
-      } finally {
-        setActivePushToken(null);
       }
+    }
+    if (activePushToken) {
+      setActivePushToken(null);
     }
     await tokenStorage.clear();
     set({
@@ -83,7 +90,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       token: null,
       user: null,
       isLoginPending: false,
+      authNotice: notice === undefined ? get().authNotice : notice,
     });
+  },
+
+  consumeAuthNotice: () => {
+    if (get().authNotice) {
+      set({ authNotice: null });
+    }
   },
 }));
 
@@ -91,7 +105,10 @@ setAuthTokenResolver(() => useAuthStore.getState().token);
 setUnauthorizedHandler(() => {
   const state = useAuthStore.getState();
   if (state.status === "authenticated") {
-    void state.logout();
+    void state.logout({
+      skipPushUnregister: true,
+      notice: "Tu sesion expiro. Vuelve a iniciar sesion.",
+    });
   }
 });
 
