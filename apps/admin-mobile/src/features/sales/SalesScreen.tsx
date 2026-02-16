@@ -141,7 +141,8 @@ const normalizeItemsFromText = (itemsJson: string): SaleItem[] => {
 };
 
 export const SalesScreen = () => {
-  const role = useAuthStore((state) => (state.user?.role || "staff") as UserRole);
+  const authUser = useAuthStore((state) => state.user);
+  const role = (authUser?.role || "staff") as UserRole;
   const syncTick = useSyncStore((state) => state.syncTick);
   const [form, setForm] = useState<SaleFormState>(initialForm);
   const [draft, setDraft] = useState<SaleDraftState>(initialSaleDraft);
@@ -157,6 +158,7 @@ export const SalesScreen = () => {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
+  const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [datePreset, setDatePreset] = useState<SalesDatePreset>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -233,18 +235,46 @@ export const SalesScreen = () => {
     });
   }, [sortedSales, datePreset, dateFrom, dateTo]);
 
+  const sellerOptions = useMemo(() => {
+    const unique = new Set<string>();
+    sales.forEach((sale) => {
+      const seller = String(sale.userName || "").trim();
+      if (seller) {
+        unique.add(seller);
+      }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [sales]);
+
+  useEffect(() => {
+    if (sellerFilter === "all") {
+      return;
+    }
+    if (!sellerOptions.includes(sellerFilter)) {
+      setSellerFilter("all");
+    }
+  }, [sellerFilter, sellerOptions]);
+
   const filteredSales = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) {
-      return dateFilteredSales;
+      return dateFilteredSales.filter((sale) => {
+        if (sellerFilter === "all") {
+          return true;
+        }
+        return String(sale.userName || "").trim() === sellerFilter;
+      });
     }
-    return dateFilteredSales.filter((sale) =>
-      [sale.refId, sale.clienteNombre, sale.clienteTelefono, sale.userName]
+    return dateFilteredSales.filter((sale) => {
+      if (sellerFilter !== "all" && String(sale.userName || "").trim() !== sellerFilter) {
+        return false;
+      }
+      return [sale.refId, sale.clienteNombre, sale.clienteTelefono, sale.userName]
         .join(" ")
         .toLowerCase()
-        .includes(term)
-    );
-  }, [dateFilteredSales, query]);
+        .includes(term);
+    });
+  }, [dateFilteredSales, query, sellerFilter]);
 
   const salesStats = useMemo(() => {
     const totalCount = filteredSales.length;
@@ -304,7 +334,9 @@ export const SalesScreen = () => {
   const hasSearchQuery = query.trim().length > 0;
   const hasDateRangeInput =
     datePreset === "range" && (dateFrom.trim().length > 0 || dateTo.trim().length > 0);
-  const hasHistoryFilters = hasSearchQuery || datePreset !== "all" || hasDateRangeInput;
+  const hasSellerFilter = sellerFilter !== "all";
+  const hasHistoryFilters =
+    hasSearchQuery || datePreset !== "all" || hasDateRangeInput || hasSellerFilter;
 
   const clearHistoryFilters = () => {
     if (isOperationLocked) {
@@ -314,6 +346,7 @@ export const SalesScreen = () => {
     setDatePreset("all");
     setDateFrom("");
     setDateTo("");
+    setSellerFilter("all");
   };
 
   const onSelectDraftProduct = (product: Product) => {
@@ -843,6 +876,52 @@ export const SalesScreen = () => {
             </View>
           </View>
         ) : null}
+        {role === "owner" ? (
+          <>
+            <Text style={styles.sectionLabel}>Filtrar por vendedor</Text>
+            <View style={styles.filterRow}>
+              <Pressable
+                style={[
+                  styles.filterButton,
+                  sellerFilter === "all" && styles.filterButtonActive,
+                  isOperationLocked && styles.controlDisabled,
+                ]}
+                onPress={() => setSellerFilter("all")}
+                disabled={isOperationLocked}
+              >
+                <Text
+                  style={[
+                    styles.filterButtonText,
+                    sellerFilter === "all" && styles.filterButtonTextActive,
+                  ]}
+                >
+                  Todos
+                </Text>
+              </Pressable>
+              {sellerOptions.map((seller) => {
+                const active = sellerFilter === seller;
+                return (
+                  <Pressable
+                    key={seller}
+                    style={[
+                      styles.filterButton,
+                      active && styles.filterButtonActive,
+                      isOperationLocked && styles.controlDisabled,
+                    ]}
+                    onPress={() => setSellerFilter(seller)}
+                    disabled={isOperationLocked}
+                  >
+                    <Text style={[styles.filterButtonText, active && styles.filterButtonTextActive]}>
+                      {seller}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.subtle}>Vista por usuario: solo tus ventas.</Text>
+        )}
         <FormField
           label="Buscar en historial"
           value={query}
