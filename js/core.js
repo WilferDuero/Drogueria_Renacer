@@ -157,7 +157,8 @@ async function apiFetch(path, options = {}) {
   const url = API_BASE.replace(/\/$/, "") + path;
   const controller = new AbortController();
   const isRemote = /onrender\.com|railway\.app|vercel\.app/i.test(API_BASE);
-  const timeout = setTimeout(() => controller.abort(), isRemote ? 10000 : 4000);
+  // Render gratis puede tardar mas en cold start; damos margen para evitar falsos fallos.
+  const timeout = setTimeout(() => controller.abort(), isRemote ? 20000 : 4000);
 
   const headers = {
     "Content-Type": "application/json",

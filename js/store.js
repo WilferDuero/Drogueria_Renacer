@@ -777,6 +777,44 @@ function markOrderSyncStatus(orderId, synced) {
   saveOrders(orders);
 }
 
+function replaceLocalOrderId(oldId, newId, fechaISO) {
+  if (!oldId || !newId || oldId === newId) return false;
+  const orders = loadOrders();
+  const idx = orders.findIndex(
+    (o) => o.id === oldId && (!fechaISO || String(o.fechaISO || "") === String(fechaISO || ""))
+  );
+  if (idx < 0) return false;
+  orders[idx].id = newId;
+  orders[idx].synced = false;
+  saveOrders(orders);
+  return true;
+}
+
+function buildRetryOrderId(baseId) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const suffix = String(Math.floor(Math.random() * 900) + 100);
+  return `${String(baseId || "DR")}-${hh}${mm}${ss}${suffix}`;
+}
+
+async function createOrderInApiWithFallback(order) {
+  if (!order || typeof apiCreateOrder !== "function") return null;
+
+  const first = await apiCreateOrder(order);
+  if (!first || !first.existing) return first;
+
+  // Si el backend reporta externalId existente, regenera ID local y reintenta una vez.
+  const oldId = order.id;
+  const newId = buildRetryOrderId(oldId);
+  const updated = replaceLocalOrderId(oldId, newId, order.fechaISO);
+  if (updated) {
+    order.id = newId;
+  }
+  return apiCreateOrder(order);
+}
+
 async function retryUnsyncedOrders() {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled || typeof apiCreateOrder !== "function") return 0;
@@ -787,7 +825,7 @@ async function retryUnsyncedOrders() {
 
   for (const o of pending) {
     try {
-      await apiCreateOrder(o);
+      await createOrderInApiWithFallback(o);
       markOrderSyncStatus(o.id, true);
       okCount++;
     } catch (e) {
@@ -863,7 +901,7 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
 
   // ✅ intenta enviar al backend (no bloquea)
   if (typeof apiCreateOrder === "function") {
-    apiCreateOrder(order)
+    createOrderInApiWithFallback(order)
       .then(() => markOrderSyncStatus(order.id, true))
       .catch((e) => {
         console.warn("apiCreateOrder error:", e);
@@ -880,6 +918,18 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
   renderCart();
   updateCartCount();
   closeModal("cartModal");
+});
+
+window.addEventListener("online", () => {
+  void retryUnsyncedOrders();
+  scheduleOrderSync("online");
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    void retryUnsyncedOrders();
+    scheduleOrderSync("resume");
+  }
 });
 
 /* ==========================================================
