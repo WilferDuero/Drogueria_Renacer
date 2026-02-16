@@ -121,6 +121,7 @@ export const ProductsScreen = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deletingProductKey, setDeletingProductKey] = useState<string | null>(null);
   const [stockUpdatingProductKey, setStockUpdatingProductKey] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadProductsData = useCallback(async () => {
     setLoading(true);
@@ -354,6 +355,18 @@ export const ProductsScreen = () => {
   const hasActiveFilters = query.trim().length > 0 || lowStockOnly || categoryFilter !== "all";
   const hasPendingMutation = !!deletingProductKey || !!stockUpdatingProductKey;
 
+  const onRefreshProducts = useCallback(async () => {
+    if (hasPendingMutation || saving || refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadProductsData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [hasPendingMutation, loadProductsData, refreshing, saving]);
+
   const onClearFilters = () => {
     setQuery("");
     setLowStockOnly(false);
@@ -412,7 +425,7 @@ export const ProductsScreen = () => {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshProducts()}>
       <SectionCard title="Gestion de productos">
         <Text style={styles.subtitle}>CRUD completo con endpoint existente.</Text>
         <View style={styles.metricsRow}>

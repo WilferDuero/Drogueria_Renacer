@@ -9,15 +9,16 @@ import {
   Text,
   View,
 } from "react-native";
+import { listProducts } from "../../api/modules/products";
 import { clearSales, createSale, listSales } from "../../api/modules/sales";
-import { SaleItem, UserRole } from "../../types/domain";
+import { Product, SaleItem, UserRole } from "../../types/domain";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { SectionCard } from "../../components/SectionCard";
 import { FormField } from "../../components/FormField";
 import { ActionButton } from "../../components/ActionButton";
 import { EmptyState } from "../../components/EmptyState";
 import { KpiCard } from "../../components/KpiCard";
-import { formatCurrencyCOP, formatDateTime, toNumber } from "../../lib/format";
+import { formatCurrencyCOP, formatDateTime, toInteger, toNumber } from "../../lib/format";
 import { theme } from "../../constants/theme";
 import { useSyncStore } from "../../store/sync-store";
 import { useAuthStore } from "../../store/auth-store";
@@ -75,6 +76,14 @@ interface SaleFormState {
   itemsJson: string;
 }
 
+type SalePresentation = "caja" | "sobre" | "unidad";
+
+interface SaleDraftState {
+  productKey: string;
+  presentacion: SalePresentation;
+  cantidad: string;
+}
+
 const initialForm: SaleFormState = {
   refId: "",
   clienteNombre: "",
@@ -84,9 +93,33 @@ const initialForm: SaleFormState = {
   itemsJson: "",
 };
 
+const initialSaleDraft: SaleDraftState = {
+  productKey: "",
+  presentacion: "caja",
+  cantidad: "1",
+};
+
 const saleItemsTemplate =
   '[{"nombre":"Producto","presentacion":"caja","precioUnit":1000,"cantidad":1,"subtotal":1000}]';
 const saleItemsPlaceholder = "Opcional (avanzado): detalle de items en formato JSON";
+
+const salePresentationButtons: Array<{ label: string; value: SalePresentation }> = [
+  { label: "Caja", value: "caja" },
+  { label: "Sobre", value: "sobre" },
+  { label: "Unidad", value: "unidad" },
+];
+
+const getProductKey = (product: Product) => String(product.externalId || product.id);
+
+const getPresentationPrice = (product: Product, presentation: SalePresentation) => {
+  if (presentation === "caja") {
+    return Number(product.precioCaja) || 0;
+  }
+  if (presentation === "sobre") {
+    return Number(product.precioSobre) || 0;
+  }
+  return Number(product.precioUnidad) || 0;
+};
 
 const normalizeItemsFromText = (itemsJson: string): SaleItem[] => {
   if (!itemsJson.trim()) {
@@ -111,11 +144,18 @@ export const SalesScreen = () => {
   const role = useAuthStore((state) => (state.user?.role || "staff") as UserRole);
   const syncTick = useSyncStore((state) => state.syncTick);
   const [form, setForm] = useState<SaleFormState>(initialForm);
+  const [draft, setDraft] = useState<SaleDraftState>(initialSaleDraft);
+  const [productsCatalog, setProductsCatalog] = useState<Product[]>([]);
+  const [assistedItems, setAssistedItems] = useState<SaleItem[]>([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [showAdvancedJson, setShowAdvancedJson] = useState(false);
   const [sales, setSales] = useState<Awaited<ReturnType<typeof listSales>>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clearingSales, setClearingSales] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [datePreset, setDatePreset] = useState<SalesDatePreset>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -126,9 +166,31 @@ export const SalesScreen = () => {
   const loadSalesData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setCatalogError(null);
     try {
-      const rows = await listSales();
-      setSales(rows);
+      const [salesRes, productsRes] = await Promise.allSettled([listSales(), listProducts()]);
+
+      if (salesRes.status === "fulfilled") {
+        setSales(salesRes.value);
+      } else {
+        setSales([]);
+        const message =
+          salesRes.reason instanceof Error
+            ? salesRes.reason.message
+            : "No fue posible cargar ventas.";
+        setError(message);
+      }
+
+      if (productsRes.status === "fulfilled") {
+        setProductsCatalog(productsRes.value);
+      } else {
+        setProductsCatalog([]);
+        const message =
+          productsRes.reason instanceof Error
+            ? productsRes.reason.message
+            : "No fue posible cargar productos para venta asistida.";
+        setCatalogError(message);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "No fue posible cargar ventas.";
       setError(message);
@@ -195,6 +257,46 @@ export const SalesScreen = () => {
     [sales]
   );
 
+  const filteredCatalog = useMemo(() => {
+    const term = catalogQuery.trim().toLowerCase();
+    const source = term
+      ? productsCatalog.filter((product) =>
+          String(product.nombre || "").toLowerCase().includes(term)
+        )
+      : productsCatalog;
+    return source.slice(0, 10);
+  }, [catalogQuery, productsCatalog]);
+
+  const selectedDraftProduct = useMemo(
+    () => productsCatalog.find((product) => getProductKey(product) === draft.productKey) || null,
+    [productsCatalog, draft.productKey]
+  );
+
+  const draftQuantity = toInteger(draft.cantidad, 0);
+  const draftUnitPrice = selectedDraftProduct
+    ? getPresentationPrice(selectedDraftProduct, draft.presentacion)
+    : 0;
+  const assistedTotal = useMemo(
+    () =>
+      assistedItems.reduce(
+        (sum, item) => sum + (Number(item.subtotal) || (Number(item.precioUnit) || 0) * (Number(item.cantidad) || 0)),
+        0
+      ),
+    [assistedItems]
+  );
+
+  const onRefreshSales = useCallback(async () => {
+    if (isOperationLocked || refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadSalesData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isOperationLocked, loadSalesData, refreshing]);
+
   const updateForm = <K extends keyof SaleFormState>(key: K, value: SaleFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -214,11 +316,84 @@ export const SalesScreen = () => {
     setDateTo("");
   };
 
+  const onSelectDraftProduct = (product: Product) => {
+    if (isOperationLocked) {
+      return;
+    }
+    setDraft((prev) => ({ ...prev, productKey: getProductKey(product) }));
+  };
+
+  const onAddAssistedItem = () => {
+    if (isOperationLocked) {
+      return;
+    }
+    if (!selectedDraftProduct) {
+      Alert.alert("Validacion", "Selecciona un producto.");
+      return;
+    }
+    if (draftQuantity <= 0) {
+      Alert.alert("Validacion", "La cantidad debe ser mayor a 0.");
+      return;
+    }
+    if (draftUnitPrice <= 0) {
+      Alert.alert(
+        "Precio no valido",
+        "El precio de la presentacion seleccionada es 0. Ajusta el producto en Inventario."
+      );
+      return;
+    }
+
+    const itemId = String(selectedDraftProduct.externalId || selectedDraftProduct.id || "");
+    const nextItem: SaleItem = {
+      id: itemId || undefined,
+      nombre: selectedDraftProduct.nombre || "Producto",
+      presentacion: draft.presentacion,
+      precioUnit: draftUnitPrice,
+      cantidad: draftQuantity,
+      subtotal: draftUnitPrice * draftQuantity,
+    };
+
+    setAssistedItems((prev) => {
+      const existingIdx = prev.findIndex(
+        (line) => String(line.id || "") === String(nextItem.id || "") && line.presentacion === nextItem.presentacion
+      );
+      if (existingIdx < 0) {
+        return [...prev, nextItem];
+      }
+      const clone = [...prev];
+      const current = clone[existingIdx];
+      const cantidad = (Number(current.cantidad) || 0) + nextItem.cantidad;
+      const precioUnit = Number(current.precioUnit) || 0;
+      clone[existingIdx] = {
+        ...current,
+        cantidad,
+        subtotal: precioUnit * cantidad,
+      };
+      return clone;
+    });
+
+    setDraft((prev) => ({ ...prev, cantidad: "1" }));
+  };
+
+  const onRemoveAssistedItem = (index: number) => {
+    if (isOperationLocked) {
+      return;
+    }
+    setAssistedItems((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  const onClearAssistedItems = () => {
+    if (isOperationLocked || !assistedItems.length) {
+      return;
+    }
+    setAssistedItems([]);
+  };
+
   const onCreateSale = async () => {
     if (isOperationLocked) {
       return;
     }
-    const total = toNumber(form.total, 0);
+    const total = assistedItems.length ? assistedTotal : toNumber(form.total, 0);
     if (total <= 0) {
       Alert.alert("Validacion", "El total debe ser mayor a 0.");
       return;
@@ -226,7 +401,7 @@ export const SalesScreen = () => {
 
     setSaving(true);
     try {
-      const items = normalizeItemsFromText(form.itemsJson);
+      const items = assistedItems.length ? assistedItems : normalizeItemsFromText(form.itemsJson);
       await createSale({
         refId: form.refId.trim() || undefined,
         clienteNombre: form.clienteNombre.trim(),
@@ -236,6 +411,9 @@ export const SalesScreen = () => {
         metodoPago: form.metodoPago.trim(),
       });
       setForm(initialForm);
+      setDraft(initialSaleDraft);
+      setAssistedItems([]);
+      setCatalogQuery("");
       await loadSalesData();
     } catch (e) {
       const message = e instanceof Error ? e.message : "No fue posible registrar venta.";
@@ -329,8 +507,10 @@ export const SalesScreen = () => {
     updateForm("itemsJson", saleItemsTemplate);
   };
 
+  const totalFieldValue = assistedItems.length ? String(assistedTotal) : form.total;
+
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshSales()}>
       <SectionCard title="Registrar venta">
         <Text style={styles.subtle}>Puedes registrar ventas manuales para operaciones de mostrador.</Text>
         <FormField
@@ -353,13 +533,145 @@ export const SalesScreen = () => {
           keyboardType="phone-pad"
           editable={!isOperationLocked}
         />
+        <View style={styles.assistedCard}>
+          <Text style={styles.assistedTitle}>Items asistidos (recomendado)</Text>
+          <Text style={styles.assistedSubtitle}>
+            Selecciona producto + presentacion + cantidad. El total se calcula solo.
+          </Text>
+          <FormField
+            label="Buscar producto"
+            value={catalogQuery}
+            onChangeText={setCatalogQuery}
+            placeholder="Nombre del producto"
+            editable={!isOperationLocked}
+          />
+          <View style={styles.catalogChipsRow}>
+            {filteredCatalog.map((product) => {
+              const key = getProductKey(product);
+              const selected = key === draft.productKey;
+              return (
+                <Pressable
+                  key={key}
+                  style={[
+                    styles.catalogChip,
+                    selected && styles.catalogChipActive,
+                    isOperationLocked && styles.controlDisabled,
+                  ]}
+                  onPress={() => onSelectDraftProduct(product)}
+                  disabled={isOperationLocked}
+                >
+                  <Text
+                    style={[
+                      styles.catalogChipText,
+                      selected && styles.catalogChipTextActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {product.nombre}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {!filteredCatalog.length ? (
+            <Text style={styles.assistedHint}>No hay productos para ese filtro.</Text>
+          ) : null}
+          {selectedDraftProduct ? (
+            <Text style={styles.assistedHint}>
+              Seleccionado: {selectedDraftProduct.nombre}
+            </Text>
+          ) : null}
+
+          <View style={styles.presentationRow}>
+            {salePresentationButtons.map((button) => {
+              const active = draft.presentacion === button.value;
+              return (
+                <Pressable
+                  key={button.value}
+                  style={[
+                    styles.presentationButton,
+                    active && styles.presentationButtonActive,
+                    isOperationLocked && styles.controlDisabled,
+                  ]}
+                  onPress={() => setDraft((prev) => ({ ...prev, presentacion: button.value }))}
+                  disabled={isOperationLocked}
+                >
+                  <Text
+                    style={[
+                      styles.presentationButtonText,
+                      active && styles.presentationButtonTextActive,
+                    ]}
+                  >
+                    {button.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <FormField
+            label="Cantidad"
+            value={draft.cantidad}
+            onChangeText={(value) => setDraft((prev) => ({ ...prev, cantidad: value }))}
+            keyboardType="numeric"
+            editable={!isOperationLocked}
+          />
+          <Text style={styles.assistedHint}>
+            Precio unitario: {formatCurrencyCOP(draftUnitPrice)}
+          </Text>
+          <View style={styles.assistedActionsRow}>
+            <View style={styles.assistedActionItem}>
+              <ActionButton
+                label="Agregar item"
+                onPress={onAddAssistedItem}
+                disabled={isOperationLocked}
+              />
+            </View>
+            <View style={styles.assistedActionItem}>
+              <ActionButton
+                label="Limpiar items"
+                variant="secondary"
+                onPress={onClearAssistedItems}
+                disabled={isOperationLocked || !assistedItems.length}
+              />
+            </View>
+          </View>
+          {assistedItems.map((line, index) => (
+            <View key={`${line.id || line.nombre}-${line.presentacion}-${index}`} style={styles.assistedItemRow}>
+              <View style={styles.assistedItemInfo}>
+                <Text style={styles.assistedItemTitle}>
+                  {line.nombre} ({line.presentacion})
+                </Text>
+                <Text style={styles.assistedItemMeta}>
+                  {formatCurrencyCOP(line.precioUnit)} x {line.cantidad}
+                </Text>
+              </View>
+              <View style={styles.assistedItemRight}>
+                <Text style={styles.assistedItemSubtotal}>{formatCurrencyCOP(line.subtotal)}</Text>
+                <Pressable
+                  style={[styles.assistedRemoveButton, isOperationLocked && styles.controlDisabled]}
+                  onPress={() => onRemoveAssistedItem(index)}
+                  disabled={isOperationLocked}
+                >
+                  <Text style={styles.assistedRemoveButtonText}>Quitar</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          {assistedItems.length ? (
+            <Text style={styles.assistedTotalText}>Total asistido: {formatCurrencyCOP(assistedTotal)}</Text>
+          ) : null}
+          {catalogError ? <Text style={styles.error}>{catalogError}</Text> : null}
+        </View>
         <FormField
           label="Total *"
-          value={form.total}
+          value={totalFieldValue}
           onChangeText={(value) => updateForm("total", value)}
           keyboardType="numeric"
-          editable={!isOperationLocked}
+          editable={!isOperationLocked && !assistedItems.length}
         />
+        {assistedItems.length ? (
+          <Text style={styles.assistedHint}>Total bloqueado porque hay items asistidos.</Text>
+        ) : null}
         <FormField
           label="Metodo de pago"
           value={form.metodoPago}
@@ -367,26 +679,39 @@ export const SalesScreen = () => {
           placeholder="efectivo, nequi, daviplata..."
           editable={!isOperationLocked}
         />
-        <FormField
-          label="Items JSON (opcional, avanzado)"
-          value={form.itemsJson}
-          onChangeText={(value) => updateForm("itemsJson", value)}
-          placeholder={saleItemsPlaceholder}
-          multiline
-          editable={!isOperationLocked}
-        />
-        <Text style={styles.itemsJsonHelper}>
-          Campo tecnico. Si no lo necesitas, dejalo vacio.
-        </Text>
-        <View style={styles.templateRow}>
-          <Pressable
-            style={[styles.templateButton, isOperationLocked && styles.controlDisabled]}
-            onPress={onFillItemsTemplate}
-            disabled={isOperationLocked}
-          >
-            <Text style={styles.templateButtonText}>Usar plantilla JSON</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={[styles.advancedToggleButton, isOperationLocked && styles.controlDisabled]}
+          onPress={() => setShowAdvancedJson((prev) => !prev)}
+          disabled={isOperationLocked}
+        >
+          <Text style={styles.advancedToggleButtonText}>
+            {showAdvancedJson ? "Ocultar JSON avanzado" : "Mostrar JSON avanzado"}
+          </Text>
+        </Pressable>
+        {showAdvancedJson ? (
+          <>
+            <FormField
+              label="Items JSON (opcional, avanzado)"
+              value={form.itemsJson}
+              onChangeText={(value) => updateForm("itemsJson", value)}
+              placeholder={saleItemsPlaceholder}
+              multiline
+              editable={!isOperationLocked}
+            />
+            <Text style={styles.itemsJsonHelper}>
+              Campo tecnico. Si no lo necesitas, dejalo vacio.
+            </Text>
+            <View style={styles.templateRow}>
+              <Pressable
+                style={[styles.templateButton, isOperationLocked && styles.controlDisabled]}
+                onPress={onFillItemsTemplate}
+                disabled={isOperationLocked}
+              >
+                <Text style={styles.templateButtonText}>Usar plantilla JSON</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
         <ActionButton
           label="Guardar venta"
           onPress={() => void onCreateSale()}
@@ -653,6 +978,156 @@ const styles = StyleSheet.create({
   statsItem: {
     flex: 1,
     minWidth: 150,
+  },
+  assistedCard: {
+    borderWidth: 1,
+    borderColor: "rgba(33,128,141,0.2)",
+    borderRadius: theme.radius.sm,
+    backgroundColor: "rgba(33,128,141,0.05)",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 8,
+  },
+  assistedTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  assistedSubtitle: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  catalogChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  catalogChip: {
+    maxWidth: "100%",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.surface,
+  },
+  catalogChipActive: {
+    borderColor: "rgba(33,128,141,0.35)",
+    backgroundColor: "rgba(33,128,141,0.14)",
+  },
+  catalogChipText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  catalogChipTextActive: {
+    color: theme.colors.primaryStrong,
+    fontWeight: "800",
+  },
+  presentationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  presentationButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.surface,
+  },
+  presentationButtonActive: {
+    borderColor: "rgba(33,128,141,0.35)",
+    backgroundColor: "rgba(33,128,141,0.14)",
+  },
+  presentationButtonText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  presentationButtonTextActive: {
+    color: theme.colors.primaryStrong,
+    fontWeight: "800",
+  },
+  assistedHint: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  assistedActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  assistedActionItem: {
+    flex: 1,
+  },
+  assistedItemRow: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  assistedItemInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  assistedItemTitle: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  assistedItemMeta: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  assistedItemRight: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  assistedItemSubtotal: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  assistedRemoveButton: {
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    borderRadius: 999,
+    backgroundColor: "rgba(239,68,68,0.08)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  assistedRemoveButtonText: {
+    color: theme.colors.danger,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  assistedTotalText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  advancedToggleButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    alignSelf: "flex-start",
+  },
+  advancedToggleButtonText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
   revenueCard: {
     width: "100%",

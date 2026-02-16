@@ -52,6 +52,7 @@ export const UsersScreen = () => {
   const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
+  const [refreshing, setRefreshing] = useState(false);
   const [editForm, setEditForm] = useState<EditUserState>({
     username: "",
     password: "",
@@ -231,6 +232,18 @@ export const UsersScreen = () => {
     );
   };
 
+  const onRefreshUsers = useCallback(async () => {
+    if (!isOwner || saving || refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadUsersData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isOwner, loadUsersData, refreshing, saving]);
+
   if (!isOwner) {
     return (
       <ScreenContainer>
@@ -243,7 +256,7 @@ export const UsersScreen = () => {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshUsers()}>
       <SectionCard title="Crear usuario">
         <Text style={styles.subtle}>Gestiona accesos del panel admin por rol.</Text>
         <FormField

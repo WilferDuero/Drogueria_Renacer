@@ -20,7 +20,7 @@ import { formatCurrencyCOP, formatDateTime } from "../../lib/format";
 import { computeSalesRevenueSummary } from "../../lib/sales-metrics";
 import { AdminTabParamList } from "../../navigation/types";
 import { useAuthStore } from "../../store/auth-store";
-import { useSyncStore } from "../../store/sync-store";
+import { InAppAlert, useSyncStore } from "../../store/sync-store";
 
 interface DashboardState {
   products: number;
@@ -89,6 +89,16 @@ const priorityMetrics: MetricKey[] = [
   "lowStockProducts",
   "salesRevenueToday",
 ];
+
+const getAlertDestinationTab = (alert: InAppAlert): keyof AdminTabParamList | null => {
+  if (alert.type === "orders") {
+    return "Pedidos";
+  }
+  if (alert.type === "stock") {
+    return "Productos";
+  }
+  return null;
+};
 
 export const DashboardScreen = () => {
   const role = useAuthStore((state) => state.user?.role ?? "staff");
@@ -237,6 +247,15 @@ export const DashboardScreen = () => {
       : String(state[key]);
   const autoSyncSeconds = Math.round(ENV.autoSyncIntervalMs / 1000);
 
+  const onOpenAlert = (alert: InAppAlert) => {
+    const destinationTab = getAlertDestinationTab(alert);
+    if (!destinationTab) {
+      return;
+    }
+    navigation.navigate(destinationTab);
+    dismissInAppAlert(alert.id);
+  };
+
   return (
     <ScreenContainer>
       <SectionCard title="Centro operativo">
@@ -305,6 +324,7 @@ export const DashboardScreen = () => {
           <Text style={styles.subtle}>Sin alertas nuevas.</Text>
         ) : (
           inAppAlerts.map((alert) => {
+            const destinationTab = getAlertDestinationTab(alert);
             const icon =
               alert.type === "orders"
                 ? "notifications-outline"
@@ -319,14 +339,25 @@ export const DashboardScreen = () => {
                 : styles.alertCardSystem;
             return (
               <View key={alert.id} style={[styles.alertCard, tone]}>
-                <View style={styles.alertCardMain}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.alertCardMain,
+                    destinationTab && styles.alertCardMainInteractive,
+                    destinationTab && pressed && styles.alertCardMainPressed,
+                  ]}
+                  onPress={() => onOpenAlert(alert)}
+                  disabled={!destinationTab}
+                >
                   <Ionicons name={icon} size={16} color={theme.colors.primaryStrong} />
                   <View style={styles.alertTextWrap}>
                     <Text style={styles.alertTitle}>{alert.title}</Text>
                     <Text style={styles.alertText}>{alert.message}</Text>
                     <Text style={styles.alertMeta}>{formatDateTime(alert.createdAt)}</Text>
+                    {destinationTab ? (
+                      <Text style={styles.alertLinkText}>Abrir {destinationTab}</Text>
+                    ) : null}
                   </View>
-                </View>
+                </Pressable>
                 <Pressable
                   style={styles.alertDismissButton}
                   onPress={() => dismissInAppAlert(alert.id)}
@@ -533,6 +564,13 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  alertCardMainInteractive: {
+    borderRadius: theme.radius.sm,
+    paddingRight: 4,
+  },
+  alertCardMainPressed: {
+    opacity: 0.75,
+  },
   alertTextWrap: {
     flex: 1,
     gap: 2,
@@ -550,6 +588,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 11,
     fontWeight: "700",
+  },
+  alertLinkText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 11,
+    fontWeight: "800",
   },
   alertDismissButton: {
     width: 22,

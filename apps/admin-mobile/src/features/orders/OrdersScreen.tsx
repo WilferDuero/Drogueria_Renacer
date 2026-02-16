@@ -315,6 +315,7 @@ export const OrdersScreen = () => {
   const [activeCriticalAction, setActiveCriticalAction] = useState<CriticalOrderAction | null>(null);
   const [activeOrderKey, setActiveOrderKey] = useState<string | null>(null);
   const [activeOrderLabel, setActiveOrderLabel] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadOrdersData = useCallback(async () => {
     setLoading(true);
@@ -878,8 +879,20 @@ export const OrdersScreen = () => {
     }
   };
 
+  const onRefreshOrders = useCallback(async () => {
+    if (activeCriticalAction || refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadOrdersData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeCriticalAction, loadOrdersData, refreshing]);
+
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshOrders()}>
       <SectionCard title="Pedidos">
         <Text style={styles.subtle}>
           Flujo critico: aceptacion parcial por item, ajuste de stock y registro de venta.

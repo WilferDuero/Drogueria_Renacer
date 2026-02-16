@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleProp,
   StyleSheet,
@@ -15,18 +16,32 @@ interface ScreenContainerProps {
   children: ReactNode;
   scrollable?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export const ScreenContainer = ({
   children,
   scrollable = true,
   contentContainerStyle,
+  refreshing = false,
+  onRefresh,
 }: ScreenContainerProps) => {
   const body = scrollable ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[styles.content, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primaryStrong}
+            colors={[theme.colors.primaryStrong]}
+          />
+        ) : undefined
+      }
     >
       {children}
     </ScrollView>
