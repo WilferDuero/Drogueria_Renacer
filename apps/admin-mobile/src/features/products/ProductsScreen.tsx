@@ -89,6 +89,24 @@ const productToForm = (product: Product): ProductFormState => ({
 
 const getProductKey = (product: Product) => String(product.externalId || product.id);
 
+const productToPayload = (product: Product): ProductPayload => ({
+  nombre: product.nombre || "",
+  descripcion: product.descripcion || "",
+  categoria: product.categoria || "",
+  disponibilidad: product.disponibilidad || "Disponible",
+  imagen: product.imagen || "",
+  precioCaja: Number(product.precioCaja) || 0,
+  precioSobre: Number(product.precioSobre) || 0,
+  precioUnidad: Number(product.precioUnidad) || 0,
+  sobresXCaja: Number(product.sobresXCaja) || 0,
+  unidadesXSobre: Number(product.unidadesXSobre) || 0,
+  stockCajas: Number(product.stockCajas) || 0,
+  ofertaActiva: !!product.ofertaActiva,
+  ofertaTexto: product.ofertaTexto || "",
+  ofertaPrecioCaja: Number(product.ofertaPrecioCaja) || 0,
+  ofertaPrecioSobre: Number(product.ofertaPrecioSobre) || 0,
+});
+
 export const ProductsScreen = () => {
   const syncTick = useSyncStore((state) => state.syncTick);
   const [products, setProducts] = useState<Product[]>([]);
@@ -102,6 +120,7 @@ export const ProductsScreen = () => {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deletingProductKey, setDeletingProductKey] = useState<string | null>(null);
+  const [stockUpdatingProductKey, setStockUpdatingProductKey] = useState<string | null>(null);
 
   const loadProductsData = useCallback(async () => {
     setLoading(true);
@@ -235,7 +254,7 @@ export const ProductsScreen = () => {
   };
 
   const onDeleteProduct = (product: Product) => {
-    if (deletingProductKey) {
+    if (deletingProductKey || stockUpdatingProductKey) {
       return;
     }
     const productKey = getProductKey(product);
@@ -278,7 +297,62 @@ export const ProductsScreen = () => {
     ]);
   };
 
+  const onUpdateProductStock = async (product: Product, nextStock: number) => {
+    if (deletingProductKey || stockUpdatingProductKey) {
+      return;
+    }
+    const productKey = getProductKey(product);
+    const currentStock = Math.max(0, Number(product.stockCajas) || 0);
+    const normalizedNext = Math.max(0, Math.trunc(nextStock));
+    if (normalizedNext === currentStock) {
+      return;
+    }
+
+    setStockUpdatingProductKey(productKey);
+    try {
+      await updateProduct(product, {
+        ...productToPayload(product),
+        stockCajas: normalizedNext,
+        disponibilidad:
+          normalizedNext <= 0 ? "Agotado" : String(product.disponibilidad || "Disponible"),
+      });
+      await loadProductsData();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "No fue posible actualizar stock.";
+      Alert.alert("Error", message);
+    } finally {
+      setStockUpdatingProductKey(null);
+    }
+  };
+
+  const onAdjustStock = (product: Product, delta: number) => {
+    const currentStock = Math.max(0, Number(product.stockCajas) || 0);
+    void onUpdateProductStock(product, currentStock + delta);
+  };
+
+  const onSetOutOfStock = (product: Product) => {
+    const stock = Math.max(0, Number(product.stockCajas) || 0);
+    if (stock <= 0) {
+      return;
+    }
+    Alert.alert(
+      "Marcar sin stock",
+      `Deseas marcar "${product.nombre}" como agotado?\n\nStock actual: ${stock} cajas`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Confirmar",
+          style: "destructive",
+          onPress: () => {
+            void onUpdateProductStock(product, 0);
+          },
+        },
+      ]
+    );
+  };
+
   const hasActiveFilters = query.trim().length > 0 || lowStockOnly || categoryFilter !== "all";
+  const hasPendingMutation = !!deletingProductKey || !!stockUpdatingProductKey;
 
   const onClearFilters = () => {
     setQuery("");
@@ -425,7 +499,7 @@ export const ProductsScreen = () => {
             <ActionButton
               label="Nuevo producto"
               onPress={openCreateModal}
-              disabled={!!deletingProductKey}
+              disabled={hasPendingMutation}
             />
           </View>
           <View style={styles.sectionActionItem}>
@@ -433,7 +507,7 @@ export const ProductsScreen = () => {
               label="Exportar CSV"
               variant="secondary"
               onPress={() => void onExportProducts()}
-              disabled={!!deletingProductKey}
+              disabled={hasPendingMutation}
             />
           </View>
         </View>
@@ -441,6 +515,12 @@ export const ProductsScreen = () => {
           <View style={styles.pendingActionBar}>
             <ActivityIndicator color={theme.colors.primaryStrong} size="small" />
             <Text style={styles.pendingActionText}>Eliminando producto...</Text>
+          </View>
+        ) : null}
+        {stockUpdatingProductKey ? (
+          <View style={styles.pendingActionBar}>
+            <ActivityIndicator color={theme.colors.primaryStrong} size="small" />
+            <Text style={styles.pendingActionText}>Actualizando stock...</Text>
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -467,6 +547,9 @@ export const ProductsScreen = () => {
         renderItem={({ item }) => {
           const productKey = getProductKey(item);
           const rowDeleting = deletingProductKey === productKey;
+          const rowStockUpdating = stockUpdatingProductKey === productKey;
+          const rowBusy = rowDeleting || rowStockUpdating;
+          const rowBlockedByOtherAction = hasPendingMutation && !rowBusy;
           const stock = Number(item.stockCajas) || 0;
           return (
             <SectionCard>
@@ -543,6 +626,42 @@ export const ProductsScreen = () => {
                 {stock > 0 && stock <= LOW_STOCK_LIMIT ? (
                   <StatusBadge text="stock bajo" tone="warning" />
                 ) : null}
+                {rowStockUpdating ? <StatusBadge text="actualizando" tone="neutral" /> : null}
+              </View>
+              <View style={styles.quickStockRow}>
+                <Pressable
+                  style={[
+                    styles.quickStockButton,
+                    styles.quickStockDown,
+                    (rowBlockedByOtherAction || rowBusy || stock <= 0) && styles.controlDisabled,
+                  ]}
+                  onPress={() => onAdjustStock(item, -1)}
+                  disabled={rowBlockedByOtherAction || rowBusy || stock <= 0}
+                >
+                  <Text style={styles.quickStockDownText}>-1 caja</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.quickStockButton,
+                    styles.quickStockUp,
+                    (rowBlockedByOtherAction || rowBusy) && styles.controlDisabled,
+                  ]}
+                  onPress={() => onAdjustStock(item, 1)}
+                  disabled={rowBlockedByOtherAction || rowBusy}
+                >
+                  <Text style={styles.quickStockUpText}>+1 caja</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.quickStockButton,
+                    styles.quickStockOut,
+                    (rowBlockedByOtherAction || rowBusy || stock <= 0) && styles.controlDisabled,
+                  ]}
+                  onPress={() => onSetOutOfStock(item)}
+                  disabled={rowBlockedByOtherAction || rowBusy || stock <= 0}
+                >
+                  <Text style={styles.quickStockOutText}>Agotar</Text>
+                </Pressable>
               </View>
               <View style={styles.actionsRow}>
                 <View style={styles.actionItem}>
@@ -550,7 +669,7 @@ export const ProductsScreen = () => {
                     label="Editar"
                     variant="secondary"
                     onPress={() => openEditModal(item)}
-                    disabled={!!deletingProductKey}
+                    disabled={rowBlockedByOtherAction || rowBusy}
                   />
                 </View>
                 <View style={styles.actionItem}>
@@ -559,7 +678,7 @@ export const ProductsScreen = () => {
                     variant="danger"
                     onPress={() => onDeleteProduct(item)}
                     loading={rowDeleting}
-                    disabled={!!deletingProductKey && !rowDeleting}
+                    disabled={rowBlockedByOtherAction || rowStockUpdating}
                   />
                 </View>
               </View>
@@ -661,7 +780,7 @@ export const ProductsScreen = () => {
                   label="Cancelar"
                   variant="secondary"
                   onPress={closeModal}
-                  disabled={saving || !!deletingProductKey}
+                  disabled={saving || hasPendingMutation}
                 />
               </View>
               <View style={styles.actionItem}>
@@ -669,7 +788,7 @@ export const ProductsScreen = () => {
                   label={editingProduct ? "Actualizar" : "Guardar"}
                   onPress={() => void onSaveProduct()}
                   loading={saving}
-                  disabled={!!deletingProductKey}
+                  disabled={hasPendingMutation}
                 />
               </View>
             </View>
@@ -849,6 +968,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  quickStockRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  quickStockButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.surface,
+  },
+  quickStockDown: {
+    borderColor: "rgba(239,68,68,0.35)",
+    backgroundColor: "rgba(239,68,68,0.09)",
+  },
+  quickStockUp: {
+    borderColor: "rgba(16,185,129,0.35)",
+    backgroundColor: "rgba(16,185,129,0.08)",
+  },
+  quickStockOut: {
+    borderColor: "rgba(245,158,11,0.35)",
+    backgroundColor: "rgba(245,158,11,0.1)",
+  },
+  quickStockDownText: {
+    color: theme.colors.danger,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  quickStockUpText: {
+    color: theme.colors.success,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  quickStockOutText: {
+    color: "#a16207",
+    fontSize: 12,
+    fontWeight: "800",
+  },
   actionItem: {
     flex: 1,
   },
@@ -894,6 +1052,9 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryStrong,
     fontSize: 12,
     fontWeight: "800",
+  },
+  controlDisabled: {
+    opacity: 0.55,
   },
   categoryChip: {
     borderWidth: 1,
