@@ -29,6 +29,7 @@ export const ReviewsScreen = () => {
   const [reviews, setReviews] = useState<Awaited<ReturnType<typeof listReviews>>>([]);
   const [loading, setLoading] = useState(true);
   const [clearingReviews, setClearingReviews] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const isOperationLocked = clearingReviews;
@@ -118,8 +119,20 @@ export const ReviewsScreen = () => {
     ]);
   };
 
+  const onRefreshReviews = useCallback(async () => {
+    if (isOperationLocked || refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadReviewsData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isOperationLocked, loadReviewsData, refreshing]);
+
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshReviews()}>
       <SectionCard title="Resenas de clientes">
         <Text style={styles.subtle}>Consulta feedback recibido en la tienda.</Text>
         <View style={styles.statsRow}>

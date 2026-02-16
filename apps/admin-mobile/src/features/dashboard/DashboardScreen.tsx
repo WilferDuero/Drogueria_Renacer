@@ -114,6 +114,7 @@ export const DashboardScreen = () => {
   const dismissInAppAlert = useSyncStore((state) => state.dismissInAppAlert);
   const clearInAppAlerts = useSyncStore((state) => state.clearInAppAlerts);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const previousSnapshotRef = useRef<{ pendingOrders: number; lowStockProducts: number } | null>(
     null
   );
@@ -256,8 +257,20 @@ export const DashboardScreen = () => {
     dismissInAppAlert(alert.id);
   };
 
+  const onRefreshDashboard = useCallback(async () => {
+    if (refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await loadDashboard();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadDashboard, refreshing]);
+
   return (
-    <ScreenContainer>
+    <ScreenContainer refreshing={refreshing} onRefresh={() => void onRefreshDashboard()}>
       <SectionCard title="Centro operativo">
         <View style={styles.topRow}>
           <View>
