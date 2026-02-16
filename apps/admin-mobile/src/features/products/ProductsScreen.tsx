@@ -87,6 +87,8 @@ const productToForm = (product: Product): ProductFormState => ({
   ofertaPrecioSobre: String(product.ofertaPrecioSobre || 0),
 });
 
+const getProductKey = (product: Product) => String(product.externalId || product.id);
+
 export const ProductsScreen = () => {
   const syncTick = useSyncStore((state) => state.syncTick);
   const [products, setProducts] = useState<Product[]>([]);
@@ -99,6 +101,7 @@ export const ProductsScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [deletingProductKey, setDeletingProductKey] = useState<string | null>(null);
 
   const loadProductsData = useCallback(async () => {
     setLoading(true);
@@ -232,20 +235,44 @@ export const ProductsScreen = () => {
   };
 
   const onDeleteProduct = (product: Product) => {
-    Alert.alert("Eliminar producto", `Deseas eliminar "${product.nombre}"?`, [
+    if (deletingProductKey) {
+      return;
+    }
+    const productKey = getProductKey(product);
+    const stock = Number(product.stockCajas) || 0;
+
+    Alert.alert("Eliminar producto", `Deseas iniciar eliminacion de "${product.nombre}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
-        text: "Eliminar",
+        text: "Continuar",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteProduct(product);
-            await loadProductsData();
-          } catch (e) {
-            const message =
-              e instanceof Error ? e.message : "No fue posible eliminar el producto.";
-            Alert.alert("Error", message);
-          }
+        onPress: () => {
+          Alert.alert(
+            "Confirmacion final",
+            `Esta accion eliminara "${product.nombre}" de forma permanente desde admin.\n\nID: ${
+              product.externalId || product.id || "--"
+            }\nStock cajas: ${stock}\n\nNo se puede deshacer desde la app.`,
+            [
+              { text: "Cancelar", style: "cancel" },
+              {
+                text: "Eliminar definitivo",
+                style: "destructive",
+                onPress: async () => {
+                  setDeletingProductKey(productKey);
+                  try {
+                    await deleteProduct(product);
+                    await loadProductsData();
+                  } catch (e) {
+                    const message =
+                      e instanceof Error ? e.message : "No fue posible eliminar el producto.";
+                    Alert.alert("Error", message);
+                  } finally {
+                    setDeletingProductKey(null);
+                  }
+                },
+              },
+            ]
+          );
         },
       },
     ]);
@@ -395,16 +422,27 @@ export const ProductsScreen = () => {
         </View>
         <View style={styles.sectionActionsRow}>
           <View style={styles.sectionActionItem}>
-            <ActionButton label="Nuevo producto" onPress={openCreateModal} />
+            <ActionButton
+              label="Nuevo producto"
+              onPress={openCreateModal}
+              disabled={!!deletingProductKey}
+            />
           </View>
           <View style={styles.sectionActionItem}>
             <ActionButton
               label="Exportar CSV"
               variant="secondary"
               onPress={() => void onExportProducts()}
+              disabled={!!deletingProductKey}
             />
           </View>
         </View>
+        {deletingProductKey ? (
+          <View style={styles.pendingActionBar}>
+            <ActivityIndicator color={theme.colors.primaryStrong} size="small" />
+            <Text style={styles.pendingActionText}>Eliminando producto...</Text>
+          </View>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </SectionCard>
 
@@ -427,6 +465,8 @@ export const ProductsScreen = () => {
         keyExtractor={(item) => `${item.externalId || item.id}`}
         scrollEnabled={false}
         renderItem={({ item }) => {
+          const productKey = getProductKey(item);
+          const rowDeleting = deletingProductKey === productKey;
           const stock = Number(item.stockCajas) || 0;
           return (
             <SectionCard>
@@ -510,6 +550,7 @@ export const ProductsScreen = () => {
                     label="Editar"
                     variant="secondary"
                     onPress={() => openEditModal(item)}
+                    disabled={!!deletingProductKey}
                   />
                 </View>
                 <View style={styles.actionItem}>
@@ -517,6 +558,8 @@ export const ProductsScreen = () => {
                     label="Eliminar"
                     variant="danger"
                     onPress={() => onDeleteProduct(item)}
+                    loading={rowDeleting}
+                    disabled={!!deletingProductKey && !rowDeleting}
                   />
                 </View>
               </View>
@@ -614,13 +657,19 @@ export const ProductsScreen = () => {
 
             <View style={styles.actionsRow}>
               <View style={styles.actionItem}>
-                <ActionButton label="Cancelar" variant="secondary" onPress={closeModal} />
+                <ActionButton
+                  label="Cancelar"
+                  variant="secondary"
+                  onPress={closeModal}
+                  disabled={saving || !!deletingProductKey}
+                />
               </View>
               <View style={styles.actionItem}>
                 <ActionButton
                   label={editingProduct ? "Actualizar" : "Guardar"}
                   onPress={() => void onSaveProduct()}
                   loading={saving}
+                  disabled={!!deletingProductKey}
                 />
               </View>
             </View>
@@ -783,6 +832,22 @@ const styles = StyleSheet.create({
   },
   sectionActionItem: {
     flex: 1,
+  },
+  pendingActionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(33,128,141,0.25)",
+    backgroundColor: "rgba(33,128,141,0.08)",
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  pendingActionText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 12,
+    fontWeight: "800",
   },
   actionItem: {
     flex: 1,
