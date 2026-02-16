@@ -121,6 +121,15 @@ const getPresentationPrice = (product: Product, presentation: SalePresentation) 
   return Number(product.precioUnidad) || 0;
 };
 
+const toFileSafeSegment = (value: string) => {
+  const safe = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+  return safe || "vendedor";
+};
+
 const normalizeItemsFromText = (itemsJson: string): SaleItem[] => {
   if (!itemsJson.trim()) {
     return [];
@@ -526,9 +535,89 @@ export const SalesScreen = () => {
 
     try {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await exportCsvFile(`ventas_renacer_${stamp}.csv`, rows);
+      const sellerSegment = sellerFilter === "all" ? "todos" : toFileSafeSegment(sellerFilter);
+      await exportCsvFile(`ventas_renacer_${sellerSegment}_${stamp}.csv`, rows);
     } catch (e) {
       const message = e instanceof Error ? e.message : "No fue posible exportar ventas.";
+      Alert.alert("Error", message);
+    }
+  };
+
+  const onExportSalesBySeller = async () => {
+    if (isOperationLocked || role !== "owner") {
+      return;
+    }
+    if (!filteredSales.length) {
+      Alert.alert("Sin datos", "No hay ventas para exportar por vendedor.");
+      return;
+    }
+
+    const grouped = new Map<
+      string,
+      { count: number; total: number; firstAt: string; lastAt: string }
+    >();
+    filteredSales.forEach((sale) => {
+      const seller = String(sale.userName || "sin_vendedor").trim() || "sin_vendedor";
+      const total = Number(sale.total) || 0;
+      const saleDate = String(sale.fechaISO || sale.createdAt || "");
+      const current = grouped.get(seller);
+      if (!current) {
+        grouped.set(seller, {
+          count: 1,
+          total,
+          firstAt: saleDate,
+          lastAt: saleDate,
+        });
+        return;
+      }
+      const firstAt = current.firstAt && saleDate ? (saleDate < current.firstAt ? saleDate : current.firstAt) : current.firstAt || saleDate;
+      const lastAt = current.lastAt && saleDate ? (saleDate > current.lastAt ? saleDate : current.lastAt) : current.lastAt || saleDate;
+      grouped.set(seller, {
+        count: current.count + 1,
+        total: current.total + total,
+        firstAt,
+        lastAt,
+      });
+    });
+
+    const summaryRows = Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([seller, data]) => [
+        seller,
+        data.count,
+        data.total,
+        data.count > 0 ? data.total / data.count : 0,
+        data.firstAt || "",
+        data.lastAt || "",
+      ]);
+
+    const detailRows = filteredSales
+      .slice()
+      .sort((a, b) => String(a.userName || "").localeCompare(String(b.userName || "")))
+      .map((sale) => [
+        sale.userName || "",
+        sale.id || "",
+        sale.refId || "",
+        sale.fechaISO || sale.createdAt || "",
+        sale.clienteNombre || "",
+        sale.clienteTelefono || "",
+        sale.metodoPago || "",
+        sale.total || 0,
+      ]);
+
+    const rows: Array<Array<unknown>> = [
+      ["vendedor", "ventas", "ingresos_total", "ticket_promedio", "primera_venta", "ultima_venta"],
+      ...summaryRows,
+      [],
+      ["detalle_vendedor", "id", "refId", "fechaISO", "clienteNombre", "clienteTelefono", "metodoPago", "total"],
+      ...detailRows,
+    ];
+
+    try {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await exportCsvFile(`ventas_por_vendedor_renacer_${stamp}.csv`, rows);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "No fue posible exportar ventas por vendedor.";
       Alert.alert("Error", message);
     }
   };
@@ -947,6 +1036,14 @@ export const SalesScreen = () => {
           onPress={() => void onExportSales()}
           disabled={isOperationLocked}
         />
+        {role === "owner" ? (
+          <ActionButton
+            label="CSV por vendedor"
+            variant="secondary"
+            onPress={() => void onExportSalesBySeller()}
+            disabled={isOperationLocked}
+          />
+        ) : null}
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={theme.colors.primary} />
