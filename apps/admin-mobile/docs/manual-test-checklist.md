@@ -1,5 +1,8 @@
 # Checklist Manual MVP Admin Mobile
 
+Orden recomendado de ejecucion:
+- Ver `apps/admin-mobile/docs/checklist-ejecucion-orden.md`.
+
 ## 1. Login y sesion
 - [ ] Al abrir app en frio, splash muestra logo de Drogueria Renacer.
 - [ ] Login con usuario valido `owner`.
