@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   ActivityIndicator,
   Alert,
@@ -37,6 +38,32 @@ const salesDateFilterButtons: Array<{ label: string; value: SalesDatePreset }> =
   { label: "Hoy", value: "today" },
   { label: "Mes", value: "month" },
   { label: "Rango", value: "range" },
+];
+
+const revenueCards: Array<{
+  key: "today" | "month" | "year";
+  label: string;
+  helper: string;
+  icon: "today-outline" | "calendar-outline" | "trending-up-outline";
+}> = [
+  {
+    key: "today",
+    label: "Ingresos Hoy",
+    helper: "Ventas del dia en curso",
+    icon: "today-outline",
+  },
+  {
+    key: "month",
+    label: "Ingresos Mes",
+    helper: "Acumulado del mes actual",
+    icon: "calendar-outline",
+  },
+  {
+    key: "year",
+    label: "Ingresos Ano",
+    helper: "Acumulado del ano actual",
+    icon: "trending-up-outline",
+  },
 ];
 
 interface SaleFormState {
@@ -401,33 +428,47 @@ export const SalesScreen = () => {
           </View>
         </View>
         <View style={styles.statsRow}>
-          <View style={styles.statsItem}>
-            <KpiCard
-              label="Ingresos Hoy"
-              value={formatCurrencyCOP(revenueSummary.today)}
-              icon="today-outline"
-              tone="success"
-              compact
-            />
-          </View>
-          <View style={styles.statsItem}>
-            <KpiCard
-              label="Ingresos Mes"
-              value={formatCurrencyCOP(revenueSummary.month)}
-              icon="calendar-outline"
-              tone="success"
-              compact
-            />
-          </View>
-          <View style={styles.statsItem}>
-            <KpiCard
-              label="Ingresos Ano"
-              value={formatCurrencyCOP(revenueSummary.year)}
-              icon="trending-up-outline"
-              tone="success"
-              compact
-            />
-          </View>
+          {revenueCards.map((card) => {
+            const value =
+              card.key === "today"
+                ? revenueSummary.today
+                : card.key === "month"
+                ? revenueSummary.month
+                : revenueSummary.year;
+            const toneStyle =
+              card.key === "today"
+                ? styles.revenueCardToday
+                : card.key === "month"
+                ? styles.revenueCardMonth
+                : styles.revenueCardYear;
+            const iconColor =
+              card.key === "today"
+                ? theme.colors.primaryStrong
+                : card.key === "month"
+                ? theme.colors.warning
+                : theme.colors.success;
+            return (
+              <View key={card.key} style={[styles.revenueCard, toneStyle]}>
+                <View style={styles.revenueHeader}>
+                  <View style={styles.revenueIconWrap}>
+                    <Ionicons name={card.icon} size={14} color={iconColor} />
+                  </View>
+                  <View style={styles.revenueLabelBlock}>
+                    <Text style={styles.revenueLabel}>{card.label}</Text>
+                    <Text style={styles.revenueHelper}>{card.helper}</Text>
+                  </View>
+                </View>
+                <Text
+                  style={styles.revenueValue}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  {formatCurrencyCOP(value)}
+                </Text>
+              </View>
+            );
+          })}
         </View>
         <Text style={styles.sectionLabel}>Filtrar por fecha</Text>
         <View style={styles.filterRow}>
@@ -608,6 +649,60 @@ const styles = StyleSheet.create({
   statsItem: {
     flex: 1,
     minWidth: 150,
+  },
+  revenueCard: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 7,
+  },
+  revenueCardToday: {
+    borderColor: "rgba(11,99,208,0.24)",
+    backgroundColor: "rgba(11,99,208,0.06)",
+  },
+  revenueCardMonth: {
+    borderColor: "rgba(245,158,11,0.32)",
+    backgroundColor: "rgba(245,158,11,0.09)",
+  },
+  revenueCardYear: {
+    borderColor: "rgba(16,185,129,0.28)",
+    backgroundColor: "rgba(16,185,129,0.08)",
+  },
+  revenueHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  revenueIconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  revenueLabelBlock: {
+    flex: 1,
+    gap: 1,
+  },
+  revenueLabel: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  revenueHelper: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  revenueValue: {
+    color: theme.colors.text,
+    fontWeight: "900",
+    fontSize: 24,
+    lineHeight: 28,
+    fontVariant: ["tabular-nums"],
   },
   sectionLabel: {
     color: theme.colors.text,
