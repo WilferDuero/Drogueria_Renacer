@@ -1,5 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  BottomTabNavigationProp,
+  createBottomTabNavigator,
+} from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -14,7 +18,7 @@ import { SalesScreen } from "../features/sales/SalesScreen";
 import { UsersScreen } from "../features/users/UsersScreen";
 import { formatDateTime } from "../lib/format";
 import { useAuthStore } from "../store/auth-store";
-import { useSyncStore } from "../store/sync-store";
+import { InAppAlert, useSyncStore } from "../store/sync-store";
 import { AdminTabParamList, RootStackParamList } from "./types";
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -30,7 +34,18 @@ const tabIconByRoute: Record<keyof AdminTabParamList, keyof typeof Ionicons.glyp
   Usuarios: "people-outline",
 };
 
+const getAlertDestinationTab = (alert: InAppAlert): keyof AdminTabParamList | null => {
+  if (alert.type === "orders") {
+    return "Pedidos";
+  }
+  if (alert.type === "stock") {
+    return "Productos";
+  }
+  return null;
+};
+
 const HeaderActions = () => {
+  const navigation = useNavigation<BottomTabNavigationProp<AdminTabParamList>>();
   const logout = useAuthStore((state) => state.logout);
   const triggerSync = useSyncStore((state) => state.triggerSync);
   const inAppAlerts = useSyncStore((state) => state.inAppAlerts);
@@ -42,6 +57,15 @@ const HeaderActions = () => {
     () => (alertsCount === 1 ? "1 alerta nueva" : `${alertsCount} alertas nuevas`),
     [alertsCount]
   );
+  const onOpenAlert = (alert: InAppAlert) => {
+    const destinationTab = getAlertDestinationTab(alert);
+    if (!destinationTab) {
+      return;
+    }
+    setAlertsOpen(false);
+    navigation.navigate(destinationTab);
+    dismissInAppAlert(alert.id);
+  };
 
   return (
     <>
@@ -98,6 +122,7 @@ const HeaderActions = () => {
             {alertsCount ? (
               <ScrollView contentContainerStyle={styles.alertList}>
                 {inAppAlerts.map((alert) => {
+                  const destinationTab = getAlertDestinationTab(alert);
                   const icon =
                     alert.type === "orders"
                       ? "notifications-outline"
@@ -106,14 +131,25 @@ const HeaderActions = () => {
                       : "information-circle-outline";
                   return (
                     <View key={alert.id} style={styles.alertItem}>
-                      <View style={styles.alertItemMain}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.alertItemMain,
+                          destinationTab && styles.alertItemMainInteractive,
+                          destinationTab && pressed && styles.alertItemMainPressed,
+                        ]}
+                        onPress={() => onOpenAlert(alert)}
+                        disabled={!destinationTab}
+                      >
                         <Ionicons name={icon} size={16} color={theme.colors.primaryStrong} />
                         <View style={styles.alertItemTextWrap}>
                           <Text style={styles.alertItemTitle}>{alert.title}</Text>
                           <Text style={styles.alertItemMessage}>{alert.message}</Text>
                           <Text style={styles.alertItemMeta}>{formatDateTime(alert.createdAt)}</Text>
+                          {destinationTab ? (
+                            <Text style={styles.alertItemLinkText}>Abrir {destinationTab}</Text>
+                          ) : null}
                         </View>
-                      </View>
+                      </Pressable>
                       <Pressable
                         style={styles.alertItemDismissButton}
                         onPress={() => dismissInAppAlert(alert.id)}
@@ -347,6 +383,13 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  alertItemMainInteractive: {
+    borderRadius: theme.radius.sm,
+    paddingRight: 4,
+  },
+  alertItemMainPressed: {
+    opacity: 0.75,
+  },
   alertItemTextWrap: {
     flex: 1,
     gap: 2,
@@ -364,6 +407,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 11,
     fontWeight: "700",
+  },
+  alertItemLinkText: {
+    color: theme.colors.primaryStrong,
+    fontSize: 11,
+    fontWeight: "800",
   },
   alertItemDismissButton: {
     width: 22,
