@@ -14,7 +14,7 @@ App movil solo para panel admin (roles `owner` y `staff`) usando React Native + 
 - Sesion persistente segura (`expo-secure-store`) y logout
 - Campo de contrasena con ver/ocultar en login y usuarios
 - Dashboard con estado API (`GET /health`) + metricas
-- Dashboard con alertas operativas in-app (pedido nuevo / stock bajo, mientras app esta abierta)
+- Alertas operativas in-app (pedido nuevo / stock bajo) con centro global en header
 - Productos: listar/crear/editar/eliminar
 - Pedidos: listar, filtrar por estado/fecha/busqueda, aceptar/rechazar/cancelar
 - Pedidos: WhatsApp al cliente (automatico + boton manual por pedido)
