@@ -62,7 +62,7 @@ const registerDevicePushToken = async () => {
     finalStatus = requested.status;
   }
   if (finalStatus !== "granted") {
-    return null;
+    console.warn("push permission not granted; trying token registration anyway");
   }
 
   const projectId = resolveExpoProjectId();
