@@ -66,15 +66,27 @@ const registerDevicePushToken = async () => {
   }
 
   const projectId = resolveExpoProjectId();
-  if (!projectId) {
-    return null;
+  try {
+    const tokenResponse = projectId
+      ? await Notifications.getExpoPushTokenAsync({ projectId })
+      : await Notifications.getExpoPushTokenAsync();
+    return String(tokenResponse.data || "").trim() || null;
+  } catch (error) {
+    if (!projectId) {
+      console.warn("push token error", error);
+      return null;
+    }
+    try {
+      const fallbackToken = await Notifications.getExpoPushTokenAsync();
+      return String(fallbackToken.data || "").trim() || null;
+    } catch (fallbackError) {
+      console.warn("push token fallback error", fallbackError);
+      return null;
+    }
   }
-
-  const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-  return String(tokenResponse.data || "").trim() || null;
 };
 
-const PUSH_REGISTER_RETRY_MS = 45_000;
+const PUSH_REGISTER_RETRY_MS = 15_000;
 
 const pushAlertFromNotification = (
   pushInAppAlert: ReturnType<typeof useSyncStore.getState>["pushInAppAlert"],

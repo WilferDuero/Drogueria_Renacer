@@ -184,11 +184,25 @@ function clearLoginAttempts(ip) {
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return res.status(401).json({ error: "No autorizado" });
+  const pushTag =
+    req.path === "/notifications/register"
+      ? "push-register"
+      : req.path === "/notifications/unregister"
+      ? "push-unregister"
+      : null;
+  if (!token) {
+    if (pushTag) {
+      console.warn(`[${pushTag}] unauthorized reason=missing-bearer`);
+    }
+    return res.status(401).json({ error: "No autorizado" });
+  }
   try {
     req.user = jwt.verify(token, JWT_SECRET);
     return next();
   } catch (e) {
+    if (pushTag) {
+      console.warn(`[${pushTag}] unauthorized reason=invalid-jwt`);
+    }
     return res.status(401).json({ error: "Token inválido" });
   }
 }
