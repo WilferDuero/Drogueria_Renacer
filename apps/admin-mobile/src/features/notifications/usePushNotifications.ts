@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
@@ -42,7 +43,8 @@ const resolveAlertType = (rawType: unknown) => {
 };
 
 const registerDevicePushToken = async () => {
-  if (!Constants.isDevice) {
+  if (!Device.isDevice) {
+    console.warn("push register skipped: non-physical device");
     return null;
   }
 
