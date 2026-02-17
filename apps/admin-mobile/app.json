@@ -35,6 +35,7 @@
       "expo-secure-store",
       "expo-dev-client",
       "expo-notifications",
+      "./plugins/withAndroidPushSetup",
       [
         "expo-build-properties",
         {
