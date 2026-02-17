@@ -1,0 +1,10 @@
+# Excluir artefactos locales para que EAS regenere nativo limpio con CNG.
+node_modules/
+.expo/
+android/
+ios/
+
+# Archivos temporales
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
