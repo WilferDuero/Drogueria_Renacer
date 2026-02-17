@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change";
 const TOKEN_TTL = process.env.JWT_TTL || "8h";
 const PUSH_LOW_STOCK_THRESHOLD = Math.max(
   1,
-  Number.parseInt(process.env.PUSH_LOW_STOCK_THRESHOLD || "2", 10) || 2
+  Number.parseInt(process.env.PUSH_LOW_STOCK_THRESHOLD || "3", 10) || 3
 );
 const PUSH_NOTIFY_ROLES = (() => {
   const allowed = new Set(["owner", "staff"]);

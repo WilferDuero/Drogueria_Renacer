@@ -31,7 +31,7 @@ import { theme } from "../../constants/theme";
 import { useSyncStore } from "../../store/sync-store";
 import { exportCsvFile } from "../../lib/csv-export";
 
-const LOW_STOCK_LIMIT = 2;
+const LOW_STOCK_LIMIT = 3;
 
 interface ProductFormState {
   nombre: string;

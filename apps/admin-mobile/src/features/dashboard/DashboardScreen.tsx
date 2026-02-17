@@ -91,6 +91,8 @@ const priorityMetrics: MetricKey[] = [
   "salesRevenueToday",
 ];
 
+const LOW_STOCK_LIMIT = 3;
+
 const getAlertDestinationTab = (alert: InAppAlert): keyof AdminTabParamList | null => {
   if (alert.type === "orders") {
     return "Pedidos";
@@ -181,7 +183,7 @@ export const DashboardScreen = () => {
           productsRes.status === "fulfilled"
             ? productsRes.value.filter((product) => {
                 const stock = Number(product.stockCajas) || 0;
-                return stock > 0 && stock <= 2;
+                return stock > 0 && stock <= LOW_STOCK_LIMIT;
               }).length
             : 0,
         reviews: reviewsRes.status === "fulfilled" ? reviewsRes.value.length : 0,
