@@ -10,7 +10,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/logo-drogueria.jpg",
+      "image": "./assets/logo-drogueria.png",
       "resizeMode": "contain",
       "backgroundColor": "#fcfcf9"
     },
@@ -42,7 +42,8 @@
             "ndkVersion": "26.1.10909125"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
