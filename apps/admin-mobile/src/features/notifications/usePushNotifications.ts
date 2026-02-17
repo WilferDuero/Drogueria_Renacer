@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { registerPushDevice } from "../../api/modules/notifications";
 import { ENV } from "../../config/env";
 import { setActivePushToken } from "../../lib/push-session";
@@ -74,6 +74,8 @@ const registerDevicePushToken = async () => {
   return String(tokenResponse.data || "").trim() || null;
 };
 
+const PUSH_REGISTER_RETRY_MS = 45_000;
+
 const pushAlertFromNotification = (
   pushInAppAlert: ReturnType<typeof useSyncStore.getState>["pushInAppAlert"],
   notification:
@@ -106,10 +108,27 @@ export const usePushNotifications = () => {
     }
 
     let canceled = false;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    const clearRetry = () => {
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        retryTimeout = null;
+      }
+    };
+    const scheduleRetry = () => {
+      clearRetry();
+      retryTimeout = setTimeout(() => {
+        void register();
+      }, PUSH_REGISTER_RETRY_MS);
+    };
+
     const register = async () => {
       try {
         const token = await registerDevicePushToken();
         if (!token || canceled) {
+          if (!canceled) {
+            scheduleRetry();
+          }
           return;
         }
         await registerPushDevice({
@@ -118,12 +137,22 @@ export const usePushNotifications = () => {
         });
         if (!canceled) {
           setActivePushToken(token);
+          clearRetry();
         }
       } catch (error) {
         console.warn("push register error", error);
+        if (!canceled) {
+          scheduleRetry();
+        }
       }
     };
     void register();
+
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        void register();
+      }
+    });
 
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
       pushAlertFromNotification(pushInAppAlert, notification);
@@ -136,6 +165,8 @@ export const usePushNotifications = () => {
 
     return () => {
       canceled = true;
+      clearRetry();
+      appStateSubscription.remove();
       receivedSubscription.remove();
       responseSubscription.remove();
     };

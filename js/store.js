@@ -100,6 +100,8 @@ async function trySyncOrdersFromApi(phoneDigits) {
 const ORDER_SYNC_DELAYS = [4000, 12000, 25000, 45000];
 let orderSyncTimer = null;
 let orderSyncAttempt = 0;
+let orderSubmitLocked = false;
+const ORDER_SUBMIT_LOCK_MS = 3000;
 
 function hasUnsyncedOrders() {
   const orders = loadOrders();
@@ -803,16 +805,12 @@ async function createOrderInApiWithFallback(order) {
   if (!order || typeof apiCreateOrder !== "function") return null;
 
   const first = await apiCreateOrder(order);
-  if (!first || !first.existing) return first;
-
-  // Si el backend reporta externalId existente, regenera ID local y reintenta una vez.
-  const oldId = order.id;
-  const newId = buildRetryOrderId(oldId);
-  const updated = replaceLocalOrderId(oldId, newId, order.fechaISO);
-  if (updated) {
-    order.id = newId;
+  // `existing=true` puede significar que sendBeacon ya insertó este mismo pedido.
+  // Lo tratamos como éxito idempotente para evitar duplicados por reintento.
+  if (first && first.existing) {
+    return { ...first, deduped: true };
   }
-  return apiCreateOrder(order);
+  return first;
 }
 
 async function retryUnsyncedOrders() {
@@ -892,8 +890,20 @@ document.getElementById("sendWhatsapp")?.addEventListener("click", () => {
 
   if (isRememberEnabled()) saveCustomer(cliente);
 
+  if (orderSubmitLocked) {
+    showToast("Estamos procesando tu pedido...");
+    return;
+  }
+  orderSubmitLocked = true;
+  setTimeout(() => {
+    orderSubmitLocked = false;
+  }, ORDER_SUBMIT_LOCK_MS);
+
   const order = createPendingOrderFromCart(cliente);
-  if (!order) return;
+  if (!order) {
+    orderSubmitLocked = false;
+    return;
+  }
 
   // intento rápido vía beacon (más confiable si el navegador cambia de app)
   trySendOrderBeacon(order);
