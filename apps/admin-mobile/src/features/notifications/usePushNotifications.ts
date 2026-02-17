@@ -42,6 +42,34 @@ const resolveAlertType = (rawType: unknown) => {
   return "system" as const;
 };
 
+const resolvePushDedupeKey = (
+  type: ReturnType<typeof resolveAlertType>,
+  rawData: unknown
+) => {
+  const data =
+    rawData && typeof rawData === "object" ? (rawData as Record<string, unknown>) : {};
+
+  if (type === "orders") {
+    const externalId = String(data.externalId ?? "").trim();
+    const orderId = String(data.orderId ?? "").trim();
+    const orderRef = externalId || orderId;
+    if (orderRef) {
+      return `push:new_order:${orderRef}`;
+    }
+  }
+
+  if (type === "stock") {
+    const externalId = String(data.externalId ?? "").trim();
+    const productId = String(data.productId ?? data.id ?? "").trim();
+    const productRef = externalId || productId;
+    if (productRef) {
+      return `push:stock_low:${productRef}`;
+    }
+  }
+
+  return "";
+};
+
 const registerDevicePushToken = async () => {
   if (!Device.isDevice) {
     console.warn("push register skipped: non-physical device");
@@ -103,10 +131,12 @@ const pushAlertFromNotification = (
     return;
   }
   const type = resolveAlertType(content.data?.type);
+  const dedupeKey = resolvePushDedupeKey(type, content.data);
   pushInAppAlert({
     type,
     title: title || "Notificacion",
     message: message || "Tienes una actualizacion.",
+    dedupeKey: dedupeKey || undefined,
   });
 };
 

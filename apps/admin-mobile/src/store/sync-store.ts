@@ -7,8 +7,24 @@ export interface InAppAlert {
   type: InAppAlertType;
   title: string;
   message: string;
+  dedupeKey?: string;
   createdAt: string;
 }
+
+const ALERT_DEDUPE_WINDOW_MS = 12_000;
+
+const toTimestamp = (isoDate: string) => {
+  const parsed = Date.parse(isoDate);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildAlertKey = (alert: Pick<InAppAlert, "type" | "title" | "message" | "dedupeKey">) => {
+  const explicitKey = String(alert.dedupeKey || "").trim();
+  if (explicitKey) {
+    return explicitKey;
+  }
+  return `${alert.type}|${String(alert.title || "").trim()}|${String(alert.message || "").trim()}`;
+};
 
 interface SyncState {
   syncTick: number;
@@ -44,13 +60,16 @@ export const useSyncStore = create<SyncState>((set) => ({
   pushInAppAlert: (alert) =>
     set((state) => {
       const createdAt = new Date().toISOString();
-      const duplicate = state.inAppAlerts.find(
-        (item) =>
-          item.type === alert.type &&
-          item.title === alert.title &&
-          item.message === alert.message
-      );
-      if (duplicate) {
+      const createdAtTs = toTimestamp(createdAt);
+      const incomingKey = buildAlertKey(alert);
+      const duplicateRecent = state.inAppAlerts.some((item) => {
+        if (buildAlertKey(item) !== incomingKey) {
+          return false;
+        }
+        const ageMs = createdAtTs - toTimestamp(item.createdAt);
+        return ageMs >= 0 && ageMs <= ALERT_DEDUPE_WINDOW_MS;
+      });
+      if (duplicateRecent) {
         return state;
       }
       const next = [

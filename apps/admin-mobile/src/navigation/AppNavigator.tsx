@@ -18,6 +18,7 @@ import { ReviewsScreen } from "../features/reviews/ReviewsScreen";
 import { SalesScreen } from "../features/sales/SalesScreen";
 import { UsersScreen } from "../features/users/UsersScreen";
 import { formatDateTime } from "../lib/format";
+import { getActivePushToken } from "../lib/push-session";
 import { useAuthStore } from "../store/auth-store";
 import { InAppAlert, useSyncStore } from "../store/sync-store";
 import { AdminTabParamList, RootStackParamList } from "./types";
@@ -187,7 +188,8 @@ const AdminTabs = () => {
       const nextCount = rows.length;
       const previousCount = previousPendingRef.current;
       setPendingOrdersCount(nextCount);
-      if (previousCount !== null && nextCount > previousCount) {
+      const hasActivePushToken = !!getActivePushToken();
+      if (!hasActivePushToken && previousCount !== null && nextCount > previousCount) {
         const delta = nextCount - previousCount;
         pushInAppAlert({
           type: "orders",
@@ -196,6 +198,7 @@ const AdminTabs = () => {
             delta === 1
               ? "Entro 1 pedido nuevo en estado pendiente."
               : `Entraron ${delta} pedidos nuevos en estado pendiente.`,
+          dedupeKey: `local:new_order:pending:${nextCount}`,
         });
       }
       previousPendingRef.current = nextCount;

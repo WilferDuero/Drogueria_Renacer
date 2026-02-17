@@ -17,6 +17,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { ENV } from "../../config/env";
 import { theme } from "../../constants/theme";
 import { formatCurrencyCOP, formatDateTime } from "../../lib/format";
+import { getActivePushToken } from "../../lib/push-session";
 import { computeSalesRevenueSummary } from "../../lib/sales-metrics";
 import { AdminTabParamList } from "../../navigation/types";
 import { useAuthStore } from "../../store/auth-store";
@@ -195,20 +196,9 @@ export const DashboardScreen = () => {
 
       const previous = previousSnapshotRef.current;
       if (previous) {
-        const pendingDelta = newState.pendingOrders - previous.pendingOrders;
-        if (pendingDelta > 0) {
-          pushInAppAlert({
-            type: "orders",
-            title: "Nuevos pedidos pendientes",
-            message:
-              pendingDelta === 1
-                ? "Entro 1 pedido nuevo en estado pendiente."
-                : `Entraron ${pendingDelta} pedidos nuevos en estado pendiente.`,
-          });
-        }
-
+        const hasActivePushToken = !!getActivePushToken();
         const lowStockDelta = newState.lowStockProducts - previous.lowStockProducts;
-        if (lowStockDelta > 0) {
+        if (!hasActivePushToken && lowStockDelta > 0) {
           pushInAppAlert({
             type: "stock",
             title: "Alerta de stock bajo",
@@ -216,6 +206,7 @@ export const DashboardScreen = () => {
               lowStockDelta === 1
                 ? "1 producto adicional quedo en stock bajo."
                 : `${lowStockDelta} productos adicionales quedaron en stock bajo.`,
+            dedupeKey: `local:stock_low:${newState.lowStockProducts}`,
           });
         }
       }
