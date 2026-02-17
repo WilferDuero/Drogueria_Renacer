@@ -5,7 +5,7 @@ import {
 } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { listOrders } from "../api/modules/orders";
 import { ENV } from "../config/env";
@@ -176,17 +176,33 @@ const HeaderActions = () => {
 const AdminTabs = () => {
   const user = useAuthStore((state) => state.user);
   const syncTick = useSyncStore((state) => state.syncTick);
+  const pushInAppAlert = useSyncStore((state) => state.pushInAppAlert);
   const isOwner = user?.role === "owner";
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const previousPendingRef = useRef<number | null>(null);
 
   const loadPendingOrdersCount = useCallback(async () => {
     try {
       const rows = await listOrders("pendiente");
-      setPendingOrdersCount(rows.length);
+      const nextCount = rows.length;
+      const previousCount = previousPendingRef.current;
+      setPendingOrdersCount(nextCount);
+      if (previousCount !== null && nextCount > previousCount) {
+        const delta = nextCount - previousCount;
+        pushInAppAlert({
+          type: "orders",
+          title: "Nuevos pedidos pendientes",
+          message:
+            delta === 1
+              ? "Entro 1 pedido nuevo en estado pendiente."
+              : `Entraron ${delta} pedidos nuevos en estado pendiente.`,
+        });
+      }
+      previousPendingRef.current = nextCount;
     } catch {
       // keep last known badge value on transient errors
     }
-  }, []);
+  }, [pushInAppAlert]);
 
   useEffect(() => {
     void loadPendingOrdersCount();
