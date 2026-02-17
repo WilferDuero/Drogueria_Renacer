@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Drogueria Renacer Admin",
+    "name": "Renacer Pharma",
     "slug": "drogueria-renacer-admin",
     "version": "1.0.0",
     "scheme": "drogueria-renacer-admin",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-drogueria.png",
     "primaryColor": "#21808d",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
@@ -22,7 +22,7 @@
       "package": "com.drogueriarenacer.adminmobile",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo-drogueria.png",
         "backgroundColor": "#fcfcf9"
       },
       "edgeToEdgeEnabled": true,
