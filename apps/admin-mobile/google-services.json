@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "453243050962",
+    "project_id": "drogueria-renacer-admin",
+    "storage_bucket": "drogueria-renacer-admin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453243050962:android:81d034628e1a0e12d0460b",
+        "android_client_info": {
+          "package_name": "com.drogueriarenacer.adminmob"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVNRKCeElTnNDdJNxUBLvzJbozvo24GAA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453243050962:android:d207bfcb5776161ed0460b",
+        "android_client_info": {
+          "package_name": "com.drogueriarenacer.adminmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVNRKCeElTnNDdJNxUBLvzJbozvo24GAA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
