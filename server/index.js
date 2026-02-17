@@ -206,6 +206,13 @@ const EXPO_PUSH_REQUEST_TIMEOUT_MS = 15000;
 const isExpoPushToken = (token) =>
   /^ExponentPushToken\[[^\]]+\]$/.test(token) || /^ExpoPushToken\[[^\]]+\]$/.test(token);
 
+const maskPushToken = (token) => {
+  const value = String(token || "").trim();
+  if (!value) return "";
+  if (value.length <= 24) return value;
+  return `${value.slice(0, 18)}...${value.slice(-6)}`;
+};
+
 const chunkArray = (items, chunkSize) => {
   const chunks = [];
   for (let i = 0; i < items.length; i += chunkSize) {
@@ -336,12 +343,18 @@ async function sendPushToRoles({ roles, title, body, data = {} }) {
   const db = await dbPromise;
   const pushDevices = await listPushTokensByRoles(db, roles);
   if (!pushDevices.length) {
+    console.log(
+      `[push] roles=${sanitizePushRoleList(roles).join(",")} targets=0 sent=0 inactive=0 reason=no-active-tokens`
+    );
     return { sent: 0, inactive: 0 };
   }
 
   const validPushDevices = pushDevices.filter((entry) => isExpoPushToken(entry.token));
   if (!validPushDevices.length) {
     console.warn("[push] no hay tokens Expo validos activos para envio.");
+    console.log(
+      `[push] roles=${sanitizePushRoleList(roles).join(",")} targets=0 sent=0 inactive=0 reason=no-valid-expo-tokens`
+    );
     return { sent: 0, inactive: 0 };
   }
 
@@ -466,6 +479,11 @@ app.post("/notifications/register", authRequired, async (req, res) => {
   const platform = String(req.body?.platform || "").trim().toLowerCase();
   const deviceId = String(req.body?.deviceId || "").trim();
   if (!isExpoPushToken(token)) {
+    console.warn(
+      `[push-register] rejected user=${req.user?.id || "?"} role=${req.user?.role || "?"} platform=${platform || "-"} token=${maskPushToken(
+        token
+      )}`
+    );
     return res.status(400).json({ error: "Token push invalido" });
   }
 
@@ -480,6 +498,11 @@ app.post("/notifications/register", authRequired, async (req, res) => {
       `,
       [req.user.id, req.user.role, platform || null, deviceId || null, existing.id]
     );
+    console.log(
+      `[push-register] ok user=${req.user.id} role=${req.user.role} platform=${platform || "-"} updated=true token=${maskPushToken(
+        token
+      )}`
+    );
     return res.json({ ok: true, updated: true });
   }
 
@@ -489,6 +512,11 @@ app.post("/notifications/register", authRequired, async (req, res) => {
     VALUES (?,?,?,?,?,1,CURRENT_TIMESTAMP)
     `,
     [req.user.id, req.user.role, platform || null, deviceId || null, token]
+  );
+  console.log(
+    `[push-register] ok user=${req.user.id} role=${req.user.role} platform=${platform || "-"} updated=false token=${maskPushToken(
+      token
+    )}`
   );
   return res.json({ ok: true });
 });
@@ -507,6 +535,9 @@ app.post("/notifications/unregister", authRequired, async (req, res) => {
     WHERE token = ? AND userId = ?
     `,
     [token, req.user.id]
+  );
+  console.log(
+    `[push-unregister] ok user=${req.user.id} role=${req.user.role} token=${maskPushToken(token)}`
   );
   return res.json({ ok: true });
 });
@@ -882,6 +913,9 @@ app.post("/orders", async (req, res) => {
       total,
       status,
     ]
+  );
+  console.log(
+    `[orders] created id=${result.lastID} externalId=${externalId || "-"} estado=${status} total=${toNumber(total, 0)}`
   );
 
   if (status === "pendiente") {
