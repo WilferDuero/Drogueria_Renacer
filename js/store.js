@@ -26,11 +26,25 @@ const productModalDesc = document.getElementById("productModalDesc");
 const productModalPrices = document.getElementById("productModalPrices");
 const productModalCategory = document.getElementById("productModalCategory");
 const closeProductModal = document.getElementById("closeProductModal");
+const productsSection = document.getElementById("productsSection");
 
 
 const OFFERS_PAGE_SIZE = 6;
 let offersPage = 1;
 let lastOffersBase = null;
+const CATALOG_PAGE_SIZE = 24;
+let catalogItems = [];
+let catalogPage = 1;
+let catalogLimit = CATALOG_PAGE_SIZE;
+let catalogTotal = 0;
+let catalogTotalPages = 0;
+let catalogHasMore = false;
+let catalogLoadingMore = false;
+let currentCategoryValue = "all";
+let currentSearchQuery = "";
+let productsLoadMoreWrap = null;
+let productsLoadMoreBtn = null;
+let productsLoadMoreInfo = null;
 
 /* ============================
   Fuente única de productos (segura)
@@ -59,23 +73,199 @@ function getAllProducts() {
   return productsCache;
 }
 
+function productCatalogKey(product) {
+  return String(product?.externalId || product?.id || "").trim();
+}
+
+function mergeProductsUnique(base = [], incoming = []) {
+  const map = new Map();
+  (Array.isArray(base) ? base : []).forEach((p) => {
+    const key = productCatalogKey(p);
+    if (key) map.set(key, p);
+  });
+  (Array.isArray(incoming) ? incoming : []).forEach((p) => {
+    const key = productCatalogKey(p);
+    if (key) map.set(key, p);
+  });
+  return Array.from(map.values());
+}
+
+function normalizeCatalogProductsPayload(payload, fallbackPage = 1, fallbackLimit = CATALOG_PAGE_SIZE) {
+  if (Array.isArray(payload)) {
+    return {
+      items: payload,
+      page: fallbackPage,
+      limit: fallbackLimit,
+      total: payload.length,
+      totalPages: payload.length ? 1 : 0,
+    };
+  }
+
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  const page = Math.max(1, Number(payload?.page) || fallbackPage);
+  const limit = Math.max(1, Number(payload?.limit) || fallbackLimit);
+  const total = Math.max(0, Number(payload?.total) || items.length);
+  const totalPages =
+    Number.isFinite(Number(payload?.totalPages))
+      ? Math.max(0, Number(payload.totalPages))
+      : total > 0
+      ? Math.ceil(total / limit)
+      : 0;
+
+  return { items, page, limit, total, totalPages };
+}
+
+function ensureLoadMoreControls() {
+  if (productsLoadMoreWrap || !productsSection || !productsGrid) return;
+
+  productsLoadMoreWrap = document.createElement("div");
+  productsLoadMoreWrap.id = "productsLoadMoreWrap";
+  productsLoadMoreWrap.style.display = "none";
+  productsLoadMoreWrap.style.marginTop = "14px";
+  productsLoadMoreWrap.style.textAlign = "center";
+
+  productsLoadMoreBtn = document.createElement("button");
+  productsLoadMoreBtn.id = "productsLoadMoreBtn";
+  productsLoadMoreBtn.type = "button";
+  productsLoadMoreBtn.className = "btn ghost";
+  productsLoadMoreBtn.textContent = "Cargar más";
+  productsLoadMoreBtn.addEventListener("click", () => {
+    void loadMoreCatalogPageFromApi();
+  });
+
+  productsLoadMoreInfo = document.createElement("div");
+  productsLoadMoreInfo.id = "productsLoadMoreInfo";
+  productsLoadMoreInfo.className = "muted";
+  productsLoadMoreInfo.style.fontSize = "12px";
+  productsLoadMoreInfo.style.marginTop = "8px";
+
+  productsLoadMoreWrap.appendChild(productsLoadMoreBtn);
+  productsLoadMoreWrap.appendChild(productsLoadMoreInfo);
+  productsSection.appendChild(productsLoadMoreWrap);
+}
+
+function getCatalogBaseProducts() {
+  if (Array.isArray(catalogItems) && catalogItems.length) return catalogItems;
+  return getAllProducts();
+}
+
+function getCatalogFilteredProducts(base) {
+  let list = Array.isArray(base) ? base : [];
+  if (currentCategoryValue !== "all") {
+    list = list.filter((p) => String(p.categoria || "") === currentCategoryValue);
+  }
+  if (currentSearchQuery) {
+    const q = currentSearchQuery.toLowerCase();
+    list = list.filter(
+      (p) =>
+        (p.nombre || "").toLowerCase().includes(q) ||
+        (p.descripcion || "").toLowerCase().includes(q) ||
+        (p.categoria || "").toLowerCase().includes(q) ||
+        (p.disponibilidad || "").toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+function updateLoadMoreControls() {
+  ensureLoadMoreControls();
+  if (!productsLoadMoreWrap || !productsLoadMoreBtn || !productsLoadMoreInfo) return;
+
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  const loadedCount = getCatalogBaseProducts().length;
+  const hasFilter = currentCategoryValue !== "all" || !!currentSearchQuery;
+
+  if (!enabled || (!catalogHasMore && !catalogLoadingMore)) {
+    productsLoadMoreWrap.style.display = "none";
+    return;
+  }
+
+  productsLoadMoreWrap.style.display = "block";
+  productsLoadMoreInfo.textContent =
+    catalogTotal > 0
+      ? `Mostrando ${loadedCount} de ${catalogTotal} productos`
+      : `Mostrando ${loadedCount} productos`;
+
+  if (catalogLoadingMore) {
+    productsLoadMoreBtn.disabled = true;
+    productsLoadMoreBtn.textContent = "Cargando...";
+    return;
+  }
+
+  if (hasFilter) {
+    productsLoadMoreBtn.disabled = true;
+    productsLoadMoreBtn.textContent = "Quita filtros para cargar más";
+    return;
+  }
+
+  productsLoadMoreBtn.disabled = !catalogHasMore;
+  productsLoadMoreBtn.textContent = catalogHasMore ? "Cargar más" : "No hay más";
+}
+
+function renderCatalogView() {
+  const base = getCatalogBaseProducts();
+  const filtered = getCatalogFilteredProducts(base);
+  renderOffers(filtered);
+  renderProducts(filtered);
+  initCategories(base);
+  updateLoadMoreControls();
+}
+
+async function fetchCatalogPageFromApi(page = 1, limit = CATALOG_PAGE_SIZE) {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || CATALOG_PAGE_SIZE));
+  const payload = await apiFetch(`/products?page=${safePage}&limit=${safeLimit}`);
+  return normalizeCatalogProductsPayload(payload, safePage, safeLimit);
+}
+
+async function loadCatalogPageFromApi(page = 1, options = {}) {
+  const append = !!options.append;
+  const response = await fetchCatalogPageFromApi(page, CATALOG_PAGE_SIZE);
+  const incoming = Array.isArray(response.items) ? response.items : [];
+
+  catalogPage = response.page;
+  catalogLimit = response.limit;
+  catalogTotal = response.total;
+  catalogTotalPages = response.totalPages;
+  catalogHasMore = catalogPage < catalogTotalPages;
+
+  catalogItems = append ? mergeProductsUnique(catalogItems, incoming) : mergeProductsUnique([], incoming);
+  productsCache = catalogItems.slice();
+  productsCacheTS = Date.now();
+  renderCatalogView();
+  return true;
+}
+
 /* ============================
   Sync con backend (opcional)
 ============================ */
 async function trySyncProductsFromApi() {
   const enabled = localStorage.getItem("API_ENABLED") !== "false";
   if (!enabled) return false;
-  if (typeof syncProductsFromApi !== "function") return false;
   try {
-    const synced = await syncProductsFromApi();
-    if (synced) {
-      refreshProductsCache();
-      return true;
-    }
+    return await loadCatalogPageFromApi(1, { append: false });
   } catch (e) {
     console.warn("syncProductsFromApi error:", e);
   }
   return false;
+}
+
+async function loadMoreCatalogPageFromApi() {
+  const enabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (!enabled || catalogLoadingMore || !catalogHasMore) return false;
+
+  catalogLoadingMore = true;
+  updateLoadMoreControls();
+  try {
+    return await loadCatalogPageFromApi(catalogPage + 1, { append: true });
+  } catch (e) {
+    console.warn("loadMoreCatalogPageFromApi error:", e);
+    showToast("No se pudo cargar más productos");
+    return false;
+  } finally {
+    catalogLoadingMore = false;
+    updateLoadMoreControls();
+  }
 }
 
 async function trySyncOrdersFromApi(phoneDigits) {
@@ -179,13 +369,6 @@ async function handleStoreSync() {
     trySyncOrdersFromApi(phone),
     trySyncReviewsFromApi(),
   ]);
-  if (pSynced) {
-    const list = getAllProducts();
-    offersPage = 1;
-    renderOffers(list);
-    renderProducts(list);
-    initCategories(list);
-  }
   if (oSynced) updateMyOrdersCount();
   showToast(pSynced || oSynced || rSynced ? "✅ Sincronizado" : "Sin cambios o sin API");
 }
@@ -969,11 +1152,9 @@ btnApiConfigStore?.addEventListener("click", configureApiFromPrompt);
   Categorías / filtros
 ========================================================== */
 function applyCategoryFilter(value) {
+  currentCategoryValue = String(value || "all");
   offersPage = 1;
-  const all = getAllProducts();
-  const filtered = value === "all" ? all : all.filter((p) => String(p.categoria || "") === value);
-  renderOffers(filtered);
-  renderProducts(filtered);
+  renderCatalogView();
 }
 
 function initCategories(list) {
@@ -981,7 +1162,7 @@ function initCategories(list) {
 
   const base = Array.isArray(list) ? list : getAllProducts();
   const cats = [...new Set((base || []).map((p) => (p.categoria || "").trim()).filter(Boolean))];
-  const current = categorySelect.value || "all";
+  const current = currentCategoryValue || categorySelect.value || "all";
 
   categorySelect.innerHTML = "";
   const optAll = document.createElement("option");
@@ -998,6 +1179,7 @@ function initCategories(list) {
 
   const hasCurrent = Array.from(categorySelect.options).some((o) => o.value === current);
   categorySelect.value = hasCurrent ? current : "all";
+  currentCategoryValue = categorySelect.value || "all";
 
   if (categorySelect.dataset.bound !== "1") {
     categorySelect.addEventListener("change", () => {
@@ -1022,18 +1204,9 @@ document.querySelectorAll("[data-category]").forEach((btn) => {
 
 /* Búsqueda tienda */
 document.getElementById("searchInput")?.addEventListener("input", (e) => {
+  currentSearchQuery = String(e.target.value || "").trim();
   offersPage = 1;
-  const query = (e.target.value || "").toLowerCase();
-  const filtered = getAllProducts().filter(
-    (p) =>
-      (p.nombre || "").toLowerCase().includes(query) ||
-      (p.descripcion || "").toLowerCase().includes(query) ||
-      (p.categoria || "").toLowerCase().includes(query) ||
-      (p.disponibilidad || "").toLowerCase().includes(query)
-  );
-
-  renderOffers(filtered);
-  renderProducts(filtered);
+  renderCatalogView();
 });
 
 /* ==========================================================
@@ -1426,25 +1599,42 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
     localStorage.setItem("API_ENABLED", "true");
   }
 
-  const renderAll = (list) => {
-    offersPage = 1;
-    renderOffers(list);
-    renderProducts(list);
-  };
-
-  const list = getAllProducts();
-  renderAll(list);
-  initCategories(list);
+  ensureLoadMoreControls();
 
   renderCart();
   updateCartCount();
   updateMyOrdersCount();
 
-  const synced = await trySyncProductsFromApi();
-  if (synced) {
-    const updated = getAllProducts();
-    renderAll(updated);
-    initCategories(updated);
+  const apiEnabled = localStorage.getItem("API_ENABLED") !== "false";
+  if (apiEnabled) {
+    catalogItems = [];
+    catalogPage = 1;
+    catalogLimit = CATALOG_PAGE_SIZE;
+    catalogTotal = 0;
+    catalogTotalPages = 0;
+    catalogHasMore = false;
+    renderCatalogView();
+
+    const synced = await trySyncProductsFromApi();
+    if (!synced) {
+      const fallback = getAllProducts();
+      catalogItems = Array.isArray(fallback) ? fallback.slice() : [];
+      catalogPage = 1;
+      catalogLimit = CATALOG_PAGE_SIZE;
+      catalogTotal = catalogItems.length;
+      catalogTotalPages = catalogItems.length ? 1 : 0;
+      catalogHasMore = false;
+      renderCatalogView();
+    }
+  } else {
+    const list = getAllProducts();
+    catalogItems = Array.isArray(list) ? list.slice() : [];
+    catalogPage = 1;
+    catalogLimit = CATALOG_PAGE_SIZE;
+    catalogTotal = catalogItems.length;
+    catalogTotalPages = catalogItems.length ? 1 : 0;
+    catalogHasMore = false;
+    renderCatalogView();
   }
 
   await retryUnsyncedOrders();

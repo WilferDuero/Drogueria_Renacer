@@ -219,39 +219,61 @@ function normalizeApiOrder(o) {
   };
 }
 
+function normalizeProductsApiPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
+
 async function syncProductsFromApi(options = {}) {
   const allowEmpty = !!options.allowEmpty;
+  const pageSize = 100;
+
   try {
-    const list = await apiFetch("/products");
-    if (Array.isArray(list)) {
-      const local = loadSavedProductsArray();
-      if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+    let list = [];
+    const firstPayload = await apiFetch(`/products?page=1&limit=${pageSize}`);
+    const firstItems = normalizeProductsApiPayload(firstPayload);
 
-      const localMap = new Map(local.map((p) => [p.id, p]));
-      const apiIds = new Set();
+    if (Array.isArray(firstPayload?.items)) {
+      const totalPages = Math.max(1, Number(firstPayload?.totalPages) || 1);
+      list = firstItems.slice();
 
-      const merged = list.map((apiP) => {
-        const localP = localMap.get(apiP.id);
-        apiIds.add(apiP.id);
-        return {
-          ...localP,
-          ...apiP,
-          // preservar historial de precio local (API no lo guarda)
-          prevPrecioCaja: localP?.prevPrecioCaja || 0,
-          prevPrecioSobre: localP?.prevPrecioSobre || 0,
-          priceChangedISO: localP?.priceChangedISO || "",
-        };
-      });
-
-      // conserva productos locales que aún no existen en la API
-      local.forEach((p) => {
-        if (!apiIds.has(p.id)) merged.push(p);
-      });
-
-      saveSavedProductsArray(merged);
-      products = getProductsLocal();
-      return merged;
+      for (let page = 2; page <= totalPages; page++) {
+        const payload = await apiFetch(`/products?page=${page}&limit=${pageSize}`);
+        const items = normalizeProductsApiPayload(payload);
+        if (items.length) list = list.concat(items);
+      }
+    } else {
+      list = firstItems;
     }
+
+    const local = loadSavedProductsArray();
+    if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+
+    const localMap = new Map(local.map((p) => [p.id, p]));
+    const apiIds = new Set();
+
+    const merged = list.map((apiP) => {
+      const localP = localMap.get(apiP.id);
+      apiIds.add(apiP.id);
+      return {
+        ...localP,
+        ...apiP,
+        // preservar historial de precio local (API no lo guarda)
+        prevPrecioCaja: localP?.prevPrecioCaja || 0,
+        prevPrecioSobre: localP?.prevPrecioSobre || 0,
+        priceChangedISO: localP?.priceChangedISO || "",
+      };
+    });
+
+    // conserva productos locales que aun no existen en la API
+    local.forEach((p) => {
+      if (!apiIds.has(p.id)) merged.push(p);
+    });
+
+    saveSavedProductsArray(merged);
+    products = getProductsLocal();
+    return merged;
   } catch (e) {}
   return null;
 }

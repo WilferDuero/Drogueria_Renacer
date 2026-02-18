@@ -629,10 +629,28 @@ app.put("/users/:id", authRequired, ownerOnly, async (req, res) => {
 /* ============================
    Productos
 ============================ */
-app.get("/products", async (_req, res) => {
+app.get("/products", async (req, res) => {
+  const page = Math.max(1, toInt(req.query?.page, 1));
+  const requestedLimit = toInt(req.query?.limit, 24);
+  const limit = Math.min(100, Math.max(1, requestedLimit));
+  const offset = (page - 1) * limit;
+
   const db = await dbPromise;
-  const rows = await db.all("SELECT * FROM products ORDER BY id DESC");
-  res.json(rows.map(normalizeProductRow));
+  const totalRow = await db.get("SELECT COUNT(*) as c FROM products");
+  const total = Number(totalRow?.c ?? totalRow?.count ?? 0);
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+  const rows = await db.all(
+    "SELECT * FROM products ORDER BY id DESC LIMIT ? OFFSET ?",
+    [limit, offset]
+  );
+
+  res.json({
+    items: rows.map(normalizeProductRow),
+    page,
+    limit,
+    total,
+    totalPages,
+  });
 });
 
 app.post("/products", authRequired, async (req, res) => {

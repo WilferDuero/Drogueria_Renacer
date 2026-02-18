@@ -20,10 +20,43 @@ const toNumericId = (id: number | string) => {
 };
 
 export const listProducts = async () => {
-  const rows = await request<Product[]>({
-    url: "/products",
+  const pageSize = 100;
+  const firstPayload = await request<
+    Product[] | { items?: Product[]; totalPages?: number; total?: number; limit?: number }
+  >({
+    url: `/products?page=1&limit=${pageSize}`,
     method: "GET",
   });
+
+  let rows = Array.isArray(firstPayload)
+    ? firstPayload
+    : Array.isArray(firstPayload?.items)
+    ? firstPayload.items
+    : [];
+
+  if (!Array.isArray(firstPayload) && Array.isArray(firstPayload?.items)) {
+    const firstLimit = Math.max(1, Number(firstPayload.limit) || pageSize);
+    const totalPages =
+      Number.isFinite(Number(firstPayload.totalPages)) && Number(firstPayload.totalPages) > 0
+        ? Number(firstPayload.totalPages)
+        : Number(firstPayload.total) > 0
+        ? Math.ceil(Number(firstPayload.total) / firstLimit)
+        : 1;
+
+    for (let page = 2; page <= totalPages; page++) {
+      const payload = await request<Product[] | { items?: Product[] }>({
+        url: `/products?page=${page}&limit=${firstLimit}`,
+        method: "GET",
+      });
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+        ? payload.items
+        : [];
+      if (items.length) rows = rows.concat(items);
+    }
+  }
+
   return rows.map(normalizeProduct);
 };
 

@@ -479,10 +479,25 @@ function getProductsByItemRefs(items = []) {
 
     try {
       showToast("Publicando productos...");
-      const remote = await apiFetch("/products");
-      const existing = new Set(
-        (Array.isArray(remote) ? remote : []).map((p) => String(p.externalId || p.id || ""))
-      );
+      const pageSize = 100;
+      let remoteItems = [];
+      const firstPayload = await apiFetch(`/products?page=1&limit=${pageSize}`);
+      if (Array.isArray(firstPayload)) {
+        remoteItems = firstPayload;
+      } else if (Array.isArray(firstPayload?.items)) {
+        remoteItems = firstPayload.items.slice();
+        const totalPages = Math.max(1, Number(firstPayload?.totalPages) || 1);
+        for (let page = 2; page <= totalPages; page++) {
+          const payload = await apiFetch(`/products?page=${page}&limit=${pageSize}`);
+          const items = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.items)
+            ? payload.items
+            : [];
+          if (items.length) remoteItems = remoteItems.concat(items);
+        }
+      }
+      const existing = new Set(remoteItems.map((p) => String(p.externalId || p.id || "")));
 
       let created = 0;
       let updated = 0;
