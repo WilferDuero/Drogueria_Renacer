@@ -152,6 +152,12 @@ function openWindowSafe(url = "", target = "_blank") {
 /* ==========================================================
   API (backend)
 ========================================================== */
+function getTenantCode() {
+  const fromQuery = new URLSearchParams(window.location.search).get("tenant");
+  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || "drogueria-renacer";
+  return String(raw || "").trim().toLowerCase();
+}
+
 async function apiFetch(path, options = {}) {
   if (!API_ENABLED) throw new Error("API deshabilitada");
   const url = API_BASE.replace(/\/$/, "") + path;
@@ -164,6 +170,7 @@ async function apiFetch(path, options = {}) {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+  headers["X-Tenant-Code"] = getTenantCode();
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -297,6 +304,7 @@ async function apiCreateOrder(order) {
     clienteNombre: order?.cliente?.nombre || "",
     clienteTelefono: order?.cliente?.telefono || "",
     clienteDireccion: order?.cliente?.direccion || "",
+    tenant_code: getTenantCode(),
     items: order.items || [],
     total: order.total || 0,
     estado: order.estado || "pendiente",
