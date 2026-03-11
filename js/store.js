@@ -17,13 +17,13 @@ const categorySelect = document.getElementById("categorySelect");
 const btnSyncStore = document.getElementById("btnSyncStore");
 const btnApiConfigStore = document.getElementById("btnApiConfigStore");
 const STORE_ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
-const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
-const FIXED_TENANT_CODE = "renacer-pharma";
+const STORE_FIXED_API_BASE = "https://wisand-core-api.onrender.com";
+const STORE_FIXED_TENANT_CODE = "renacer-pharma";
 
 function enforceStoreApiBinding() {
-  localStorage.setItem("API_BASE", FIXED_API_BASE);
+  localStorage.setItem("API_BASE", STORE_FIXED_API_BASE);
   localStorage.setItem("API_ENABLED", "true");
-  localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+  localStorage.setItem("TENANT_CODE", STORE_FIXED_TENANT_CODE);
 }
 
 // Modal detalle producto
