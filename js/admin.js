@@ -14,6 +14,16 @@
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
   const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
   const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
+  const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
+  const FIXED_TENANT_CODE = "renacer-pharma";
+
+  function enforceAdminApiBinding() {
+    localStorage.setItem("API_BASE", FIXED_API_BASE);
+    localStorage.setItem("API_ENABLED", "true");
+    localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+  }
+
+  enforceAdminApiBinding();
 
   let currentUser = null;
   let isOwner = false;
@@ -63,6 +73,7 @@
   const btnPushProductsAdmin = document.getElementById("btnPushProductsAdmin");
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
   const adminUserInfo = document.getElementById("adminUserInfo");
+  if (btnApiConfigAdmin) btnApiConfigAdmin.style.display = "none";
 
   // Tabs
   const tabBtns = document.querySelectorAll(".tab-btn");
@@ -336,17 +347,8 @@
   }
 
   function configureApiFromPrompt() {
-    const modal = document.getElementById("apiConfigModal");
-    const input = document.getElementById("apiBaseInput");
-    const enabled = document.getElementById("apiEnabledInput");
-    if (!modal || !input || !enabled) return;
-
-    input.value = localStorage.getItem("API_BASE") || "http://localhost:3001";
-    enabled.checked = localStorage.getItem("API_ENABLED") !== "false";
-
-    openModal("apiConfigModal");
-    updateApiLastSyncLabel();
-    checkApiHealth();
+    enforceAdminApiBinding();
+    showToast("API fija en WISAND core");
   }
 
   async function handleAdminSync() {
@@ -738,19 +740,11 @@ function getProductsByItemRefs(items = []) {
     if (modal && e.target === modal) closeModal("apiConfigModal");
   });
   document.getElementById("saveApiConfig")?.addEventListener("click", () => {
-    const input = document.getElementById("apiBaseInput");
-    const enabled = document.getElementById("apiEnabledInput");
-    if (!input || !enabled) return;
-
-    const trimmed = String(input.value || "").trim();
-    if (!trimmed) return alert("URL inválida.");
-
-    localStorage.setItem("API_BASE", trimmed);
-    localStorage.setItem("API_ENABLED", enabled.checked ? "true" : "false");
-    showToast(enabled.checked ? "✅ API activada" : "⚠️ API desactivada");
-    closeModal("apiConfigModal");
-    setTimeout(() => window.location.reload(), 300);
-  });
+  enforceAdminApiBinding();
+  showToast("API fija en WISAND core");
+  closeModal("apiConfigModal");
+  setTimeout(() => window.location.reload(), 300);
+});
 
   /* ==========================================================
     CRUD PRODUCTOS
@@ -1865,3 +1859,4 @@ function getProductsByItemRefs(items = []) {
     }
   });
 })();
+

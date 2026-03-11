@@ -12,7 +12,52 @@ const ADMIN_TOKEN_KEY = "admin_token_v1";
 const ADMIN_USER_KEY = "admin_user_v1";
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
-const API_BASE_DEFAULT = "https://wisand-core-api.onrender.com";
+const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
+const FIXED_TENANT_CODE = "renacer-pharma";
+const API_BINDING_SIGNATURE_KEY = "api_binding_signature_v1";
+
+function clearApiBoundStaleData() {
+  const productKeys = [
+    LS_KEY,
+    LS_KEY + "_backup",
+    LS_KEY + "_ts",
+    LS_KEY + "_backup_ts",
+  ];
+  const authKeys = [ADMIN_TOKEN_KEY, ADMIN_USER_KEY, ADMIN_FLAG, ADMIN_SESSION_TS_KEY];
+
+  productKeys.concat(authKeys).forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch {}
+    try {
+      sessionStorage.removeItem(k);
+    } catch {}
+  });
+}
+
+(function enforceFixedApiTenantBinding() {
+  const currentBase = String(localStorage.getItem("API_BASE") || "").trim();
+  const currentTenant = String(localStorage.getItem("TENANT_CODE") || "")
+    .trim()
+    .toLowerCase();
+  const signature = `${FIXED_API_BASE}|${FIXED_TENANT_CODE}`;
+  const previousSignature = String(localStorage.getItem(API_BINDING_SIGNATURE_KEY) || "").trim();
+
+  const changedBase = !!currentBase && currentBase !== FIXED_API_BASE;
+  const changedTenant = !!currentTenant && currentTenant !== FIXED_TENANT_CODE;
+  const changedSignature = !!previousSignature && previousSignature !== signature;
+
+  if (changedBase || changedTenant || changedSignature) {
+    clearApiBoundStaleData();
+  }
+
+  localStorage.setItem("API_BASE", FIXED_API_BASE);
+  localStorage.setItem("API_ENABLED", "true");
+  localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+  localStorage.setItem(API_BINDING_SIGNATURE_KEY, signature);
+})();
+
+const API_BASE_DEFAULT = FIXED_API_BASE;
 const API_BASE_STORED = localStorage.getItem("API_BASE");
 const IS_LOCAL_HOST =
   !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -151,7 +196,7 @@ function openWindowSafe(url = "", target = "_blank") {
 ========================================================== */
 function getTenantCode() {
   const fromQuery = new URLSearchParams(window.location.search).get("tenant");
-  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || "renacer-pharma";
+  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || FIXED_TENANT_CODE;
   return String(raw || "").trim().toLowerCase();
 }
 
@@ -251,33 +296,15 @@ async function syncProductsFromApi(options = {}) {
       list = firstItems;
     }
 
-    const local = loadSavedProductsArray();
-    if (!allowEmpty && list.length === 0 && local.length > 0) return null;
+    if (!allowEmpty && list.length === 0) {
+      saveSavedProductsArray([]);
+      products = [];
+      return [];
+    }
 
-    const localMap = new Map(local.map((p) => [p.id, p]));
-    const apiIds = new Set();
-
-    const merged = list.map((apiP) => {
-      const localP = localMap.get(apiP.id);
-      apiIds.add(apiP.id);
-      return {
-        ...localP,
-        ...apiP,
-        // preservar historial de precio local (API no lo guarda)
-        prevPrecioCaja: localP?.prevPrecioCaja || 0,
-        prevPrecioSobre: localP?.prevPrecioSobre || 0,
-        priceChangedISO: localP?.priceChangedISO || "",
-      };
-    });
-
-    // conserva productos locales que aun no existen en la API
-    local.forEach((p) => {
-      if (!apiIds.has(p.id)) merged.push(p);
-    });
-
-    saveSavedProductsArray(merged);
-    products = getProductsLocal();
-    return merged;
+    saveSavedProductsArray(list);
+    products = Array.isArray(list) ? list.slice() : [];
+    return list;
   } catch (e) {}
   return null;
 }
@@ -496,19 +523,7 @@ function saveSavedProductsArray(arr) {
 /* Fuente única de productos (con fallback si storage está vacío) */
 function getProductsLocal() {
   const saved = loadSavedProductsArray();
-  if (Array.isArray(saved) && saved.length) return saved;
-
-  // fallback: si borraron storage, devolvemos base inicial normalizada
-  return products.map((p) => ({
-    ...p,
-    prevPrecioCaja: 0,
-    prevPrecioSobre: 0,
-    priceChangedISO: "",
-    ofertaActiva: false,
-    ofertaTexto: "",
-    ofertaPrecioCaja: 0,
-    ofertaPrecioSobre: 0,
-  }));
+  return Array.isArray(saved) ? saved : [];
 }
 
 /* ==========================================================

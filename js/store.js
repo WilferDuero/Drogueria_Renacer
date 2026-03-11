@@ -17,6 +17,14 @@ const categorySelect = document.getElementById("categorySelect");
 const btnSyncStore = document.getElementById("btnSyncStore");
 const btnApiConfigStore = document.getElementById("btnApiConfigStore");
 const STORE_ADMIN_TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
+const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
+const FIXED_TENANT_CODE = "renacer-pharma";
+
+function enforceStoreApiBinding() {
+  localStorage.setItem("API_BASE", FIXED_API_BASE);
+  localStorage.setItem("API_ENABLED", "true");
+  localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+}
 
 // Modal detalle producto
 const productModal = document.getElementById("productModal");
@@ -54,23 +62,14 @@ let productsCache = null;
 let productsCacheTS = 0;
 
 function refreshProductsCache() {
-  let list = [];
-  try {
-    if (typeof getProducts === "function") list = getProducts() || [];
-  } catch (e) {}
-  if (!Array.isArray(list)) list = [];
-
+  const list = Array.isArray(catalogItems) ? catalogItems.slice() : [];
   productsCache = list;
-  const ts = Number(localStorage.getItem(PRODUCTS_TS_KEY) || 0);
-  productsCacheTS = ts || Date.now();
+  productsCacheTS = Date.now();
   return productsCache;
 }
 
 function getAllProducts() {
-  const ts = Number(localStorage.getItem(PRODUCTS_TS_KEY) || 0);
-  if (!productsCache || (ts && ts !== productsCacheTS)) return refreshProductsCache();
-
-  return productsCache;
+  return Array.isArray(catalogItems) ? catalogItems.slice() : [];
 }
 
 function productCatalogKey(product) {
@@ -145,8 +144,7 @@ function ensureLoadMoreControls() {
 }
 
 function getCatalogBaseProducts() {
-  if (Array.isArray(catalogItems) && catalogItems.length) return catalogItems;
-  return getAllProducts();
+  return Array.isArray(catalogItems) ? catalogItems : [];
 }
 
 function getCatalogFilteredProducts(base) {
@@ -341,16 +339,8 @@ async function trySyncReviewsFromApi() {
 }
 
 function configureApiFromPrompt() {
-  const current = localStorage.getItem("API_BASE") || "http://localhost:3001";
-  const base = prompt("URL del backend (API_BASE):", current);
-  if (base === null) return;
-  const trimmed = String(base).trim();
-  if (!trimmed) return alert("URL inválida.");
-
-  const enabled = confirm("¿Activar API ahora? (OK = Sí / Cancel = No)");
-  localStorage.setItem("API_BASE", trimmed);
-  localStorage.setItem("API_ENABLED", enabled ? "true" : "false");
-  showToast(enabled ? "✅ API activada" : "⚠️ API desactivada");
+  enforceStoreApiBinding();
+  showToast("API fija en WISAND core");
   setTimeout(() => window.location.reload(), 300);
 }
 
@@ -1586,18 +1576,8 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
 (async function initStore() {
   if (!productsGrid) return;
 
-  const isLocalHost =
-    !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
-  const apiBase = typeof API_BASE === "string" ? API_BASE : localStorage.getItem("API_BASE") || "";
-  if (!isLocalHost && /localhost|127\.0\.0\.1/i.test(apiBase)) {
-    localStorage.setItem("API_BASE", "https://drogueria-renacer.onrender.com");
-    localStorage.setItem("API_ENABLED", "true");
-    window.location.reload();
-    return;
-  }
-  if (!isLocalHost && localStorage.getItem("API_ENABLED") === "false") {
-    localStorage.setItem("API_ENABLED", "true");
-  }
+  enforceStoreApiBinding();
+  if (btnApiConfigStore) btnApiConfigStore.style.display = "none";
 
   ensureLoadMoreControls();
 
@@ -1606,33 +1586,30 @@ document.getElementById("clearReviewsLocal")?.addEventListener("click", () => {
   updateMyOrdersCount();
 
   const apiEnabled = localStorage.getItem("API_ENABLED") !== "false";
+  catalogItems = [];
+  catalogPage = 1;
+  catalogLimit = CATALOG_PAGE_SIZE;
+  catalogTotal = 0;
+  catalogTotalPages = 0;
+  catalogHasMore = false;
+  renderCatalogView();
+
   if (apiEnabled) {
-    catalogItems = [];
+    const synced = await trySyncProductsFromApi();
+    if (!synced) {
+      catalogPage = 1;
+      catalogLimit = CATALOG_PAGE_SIZE;
+      catalogTotal = 0;
+      catalogTotalPages = 0;
+      catalogHasMore = false;
+      renderCatalogView();
+      showToast("Catalogo no disponible");
+    }
+  } else {
     catalogPage = 1;
     catalogLimit = CATALOG_PAGE_SIZE;
     catalogTotal = 0;
     catalogTotalPages = 0;
-    catalogHasMore = false;
-    renderCatalogView();
-
-    const synced = await trySyncProductsFromApi();
-    if (!synced) {
-      const fallback = getAllProducts();
-      catalogItems = Array.isArray(fallback) ? fallback.slice() : [];
-      catalogPage = 1;
-      catalogLimit = CATALOG_PAGE_SIZE;
-      catalogTotal = catalogItems.length;
-      catalogTotalPages = catalogItems.length ? 1 : 0;
-      catalogHasMore = false;
-      renderCatalogView();
-    }
-  } else {
-    const list = getAllProducts();
-    catalogItems = Array.isArray(list) ? list.slice() : [];
-    catalogPage = 1;
-    catalogLimit = CATALOG_PAGE_SIZE;
-    catalogTotal = catalogItems.length;
-    catalogTotalPages = catalogItems.length ? 1 : 0;
     catalogHasMore = false;
     renderCatalogView();
   }
@@ -1651,3 +1628,4 @@ if (document.getElementById("reviewsSection")) {
   renderReviews();
   trySyncReviewsFromApi();
 }
+
