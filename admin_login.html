@@ -6,7 +6,7 @@
   <title>Login Admin - Droguería Renacer</title>
   <meta name="theme-color" content="#0b63d0">
   <link rel="manifest" href="manifest-admin.json">
-  <link rel="stylesheet" href="style.css?v=20260311c">
+  <link rel="stylesheet" href="style.css?v=20260311d">
 </head>
 <body class="login-page">
   <div class="login-container">
@@ -68,12 +68,18 @@
   <div id="notif" class="notif" aria-live="polite" role="status"></div>
 
   <script>
-    localStorage.setItem("API_BASE", "https://wisand-core-api.onrender.com");
-    localStorage.setItem("API_ENABLED", "true");
-    localStorage.setItem("TENANT_CODE", "renacer-pharma");
+    (function () {
+      const MODE_KEY = "wisand_admin_mode_v1";
+      const mode = String(localStorage.getItem(MODE_KEY) || "").trim().toLowerCase();
+      const tenant = mode === "superuser" ? "wisand" : "renacer-pharma";
+      if (mode !== "superuser") localStorage.setItem(MODE_KEY, "client");
+      localStorage.setItem("API_BASE", "https://wisand-core-api.onrender.com");
+      localStorage.setItem("API_ENABLED", "true");
+      localStorage.setItem("TENANT_CODE", tenant);
+    })();
   </script>
-  <script src="js/core.js?v=20260311c"></script>
-  <script src="js/auth.js?v=20260311c"></script>
-  <script src="js/admin_pwa.js?v=20260311c"></script>
+  <script src="js/core.js?v=20260311d"></script>
+  <script src="js/auth.js?v=20260311d"></script>
+  <script src="js/admin_pwa.js?v=20260311d"></script>
 </body>
 </html>

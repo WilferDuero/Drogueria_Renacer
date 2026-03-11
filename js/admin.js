@@ -14,19 +14,41 @@
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
   const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
   const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
+  const ADMIN_MODE_KEY = window.ADMIN_MODE_KEY || "wisand_admin_mode_v1";
   const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
-  const FIXED_TENANT_CODE = "renacer-pharma";
+  const CLIENT_TENANT_CODE = window.CLIENT_TENANT_CODE || "renacer-pharma";
+  const SUPER_TENANT_CODE = window.SUPERUSER_TENANT_CODE || "wisand";
+  const SUPER_USERNAME = String(window.SUPERUSER_USERNAME || "wisand2927")
+    .trim()
+    .toLowerCase();
 
-  function enforceAdminApiBinding() {
+  function normalizeCode(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function getModeFromStorage() {
+    return normalizeCode(localStorage.getItem(ADMIN_MODE_KEY)) === "superuser"
+      ? "superuser"
+      : "client";
+  }
+
+  function enforceAdminApiBinding(modeOverride) {
+    const mode = modeOverride === "superuser" ? "superuser" : getModeFromStorage();
+    const tenantCode = mode === "superuser" ? SUPER_TENANT_CODE : CLIENT_TENANT_CODE;
     localStorage.setItem("API_BASE", FIXED_API_BASE);
     localStorage.setItem("API_ENABLED", "true");
-    localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+    localStorage.setItem("TENANT_CODE", tenantCode);
+    localStorage.setItem(ADMIN_MODE_KEY, mode);
+    window.API_BASE = FIXED_API_BASE;
+    window.TENANT_CODE = tenantCode;
+    return mode;
   }
 
   enforceAdminApiBinding();
 
   let currentUser = null;
   let isOwner = false;
+  let isTechnicalMode = false;
 
   function isSessionValid() {
     if (localStorage.getItem(ADMIN_FLAG) !== "true") return false;
@@ -47,6 +69,8 @@
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.setItem(ADMIN_MODE_KEY, "client");
+    localStorage.setItem("TENANT_CODE", CLIENT_TENANT_CODE);
     window.location.href = "admin_login.html";
     return;
   }
@@ -61,6 +85,8 @@
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.setItem(ADMIN_MODE_KEY, "client");
+      localStorage.setItem("TENANT_CODE", CLIENT_TENANT_CODE);
       window.location.href = "admin_login.html";
     }
   }, 60 * 1000);
@@ -73,7 +99,15 @@
   const btnPushProductsAdmin = document.getElementById("btnPushProductsAdmin");
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
   const adminUserInfo = document.getElementById("adminUserInfo");
-  if (btnApiConfigAdmin) btnApiConfigAdmin.style.display = "none";
+
+  function setTechnicalControlsVisible(visible) {
+    const display = visible ? "" : "none";
+    if (btnSyncAdmin) btnSyncAdmin.style.display = display;
+    if (btnPushProductsAdmin) btnPushProductsAdmin.style.display = display;
+    if (btnApiConfigAdmin) btnApiConfigAdmin.style.display = display;
+  }
+
+  setTechnicalControlsVisible(false);
 
   // Tabs
   const tabBtns = document.querySelectorAll(".tab-btn");
@@ -299,11 +333,34 @@
     }
   }
 
+  function isTechnicalSuperuser(user) {
+    const username = normalizeCode(user?.username || "");
+    const tenantCode = normalizeCode(localStorage.getItem("TENANT_CODE"));
+    const mode = getModeFromStorage();
+    return mode === "superuser" && tenantCode === SUPER_TENANT_CODE && username === SUPER_USERNAME;
+  }
+
+  function applyUiModeFromUser(user) {
+    const technical = isTechnicalSuperuser(user);
+    isTechnicalMode = technical;
+    if (technical) {
+      enforceAdminApiBinding("superuser");
+      setTechnicalControlsVisible(true);
+      return;
+    }
+    enforceAdminApiBinding("client");
+    setTechnicalControlsVisible(false);
+  }
+
   function setCurrentUser(user) {
     currentUser = user || null;
     isOwner = !!user && user.role === "owner";
+    applyUiModeFromUser(user);
     if (adminUserInfo) {
-      const label = user?.username ? `${user.username} (${user.role || "staff"})` : "--";
+      const scopeLabel = isTechnicalMode ? " / tecnico" : "";
+      const label = user?.username
+        ? `${user.username} (${user.role || "staff"})${scopeLabel}`
+        : "--";
       adminUserInfo.querySelector(".api-text").textContent = `Usuario: ${label}`;
     }
 
@@ -342,16 +399,26 @@
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.setItem(ADMIN_MODE_KEY, "client");
+      localStorage.setItem("TENANT_CODE", CLIENT_TENANT_CODE);
       window.location.href = "admin_login.html";
     }
   }
 
   function configureApiFromPrompt() {
+    if (!isTechnicalMode) {
+      showToast("Modo tecnico solo para WISAND");
+      return;
+    }
     enforceAdminApiBinding();
     showToast("API fija en WISAND core");
   }
 
   async function handleAdminSync() {
+    if (!isTechnicalMode) {
+      showToast("Modo tecnico solo para WISAND");
+      return;
+    }
     showToast("Sincronizando...");
     const [pSynced, oSynced, sSynced] = await Promise.all([
       trySyncProductsFromApi(),
@@ -456,7 +523,11 @@ function getProductsByItemRefs(items = []) {
     return { ok: true, synced, total: results.length };
   }
 
-    async function pushAllProductsToApi() {
+  async function pushAllProductsToApi() {
+    if (!isTechnicalMode) {
+      showToast("Modo tecnico solo para WISAND");
+      return false;
+    }
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (!enabled) {
       showToast("API desactivada");
@@ -726,6 +797,9 @@ function getProductsByItemRefs(items = []) {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.setItem(ADMIN_MODE_KEY, "client");
+    localStorage.setItem("TENANT_CODE", CLIENT_TENANT_CODE);
+    window.TENANT_CODE = CLIENT_TENANT_CODE;
     window.location.href = "admin_login.html";
   });
 
@@ -740,11 +814,16 @@ function getProductsByItemRefs(items = []) {
     if (modal && e.target === modal) closeModal("apiConfigModal");
   });
   document.getElementById("saveApiConfig")?.addEventListener("click", () => {
-  enforceAdminApiBinding();
-  showToast("API fija en WISAND core");
-  closeModal("apiConfigModal");
-  setTimeout(() => window.location.reload(), 300);
-});
+    if (!isTechnicalMode) {
+      showToast("Modo tecnico solo para WISAND");
+      closeModal("apiConfigModal");
+      return;
+    }
+    enforceAdminApiBinding();
+    showToast("API fija en WISAND core");
+    closeModal("apiConfigModal");
+    setTimeout(() => window.location.reload(), 300);
+  });
 
   /* ==========================================================
     CRUD PRODUCTOS

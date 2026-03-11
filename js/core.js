@@ -13,8 +13,33 @@ const ADMIN_USER_KEY = "admin_user_v1";
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
 const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
-const FIXED_TENANT_CODE = "renacer-pharma";
+const CLIENT_TENANT_CODE = "renacer-pharma";
+const SUPERUSER_TENANT_CODE = "wisand";
+const SUPERUSER_USERNAME = "wisand2927";
+const ADMIN_MODE_KEY = "wisand_admin_mode_v1";
 const API_BINDING_SIGNATURE_KEY = "api_binding_signature_v1";
+
+function normalizeCode(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isAdminSurfacePath() {
+  const path = normalizeCode(window.location?.pathname || "");
+  return path.endsWith("/admin.html") || path.endsWith("/admin_login.html");
+}
+
+function getAdminMode() {
+  return normalizeCode(localStorage.getItem(ADMIN_MODE_KEY)) === "superuser"
+    ? "superuser"
+    : "client";
+}
+
+function getBoundTenantCode() {
+  if (isAdminSurfacePath() && getAdminMode() === "superuser") {
+    return SUPERUSER_TENANT_CODE;
+  }
+  return CLIENT_TENANT_CODE;
+}
 
 function clearApiBoundStaleData() {
   const productKeys = [
@@ -22,8 +47,30 @@ function clearApiBoundStaleData() {
     LS_KEY + "_backup",
     LS_KEY + "_ts",
     LS_KEY + "_backup_ts",
+    "pedidos_renacer_v1",
+    "pedidos_renacer_v1_backup",
+    "pedidos_renacer_v1_ts",
+    "pedidos_renacer_v1_backup_ts",
+    "ventas_renacer",
+    "ventas_renacer_backup",
+    "ventas_renacer_ts",
+    "ventas_renacer_backup_ts",
+    "reviews_renacer_v1",
+    "cart_renacer",
+    "cliente_renacer_v1",
+    "cliente_remember_enabled_v1",
+    "recibos_renacer_v1",
+    "recibos_renacer_v1_backup",
+    "recibos_renacer_v1_ts",
+    "recibos_renacer_v1_backup_ts",
   ];
-  const authKeys = [ADMIN_TOKEN_KEY, ADMIN_USER_KEY, ADMIN_FLAG, ADMIN_SESSION_TS_KEY];
+  const authKeys = [
+    ADMIN_TOKEN_KEY,
+    ADMIN_USER_KEY,
+    ADMIN_FLAG,
+    ADMIN_SESSION_TS_KEY,
+    "sales_user_id_v1",
+  ];
 
   productKeys.concat(authKeys).forEach((k) => {
     try {
@@ -36,24 +83,22 @@ function clearApiBoundStaleData() {
 }
 
 (function enforceFixedApiTenantBinding() {
+  const targetTenantCode = getBoundTenantCode();
   const currentBase = String(localStorage.getItem("API_BASE") || "").trim();
-  const currentTenant = String(localStorage.getItem("TENANT_CODE") || "")
-    .trim()
-    .toLowerCase();
-  const signature = `${FIXED_API_BASE}|${FIXED_TENANT_CODE}`;
-  const previousSignature = String(localStorage.getItem(API_BINDING_SIGNATURE_KEY) || "").trim();
+  const currentTenant = normalizeCode(localStorage.getItem("TENANT_CODE") || "");
+  const signature = `${FIXED_API_BASE}|${targetTenantCode}|${getAdminMode()}`;
 
   const changedBase = !!currentBase && currentBase !== FIXED_API_BASE;
-  const changedTenant = !!currentTenant && currentTenant !== FIXED_TENANT_CODE;
-  const changedSignature = !!previousSignature && previousSignature !== signature;
+  const changedTenant = !!currentTenant && currentTenant !== targetTenantCode;
 
-  if (changedBase || changedTenant || changedSignature) {
+  if (changedBase || changedTenant) {
     clearApiBoundStaleData();
   }
 
   localStorage.setItem("API_BASE", FIXED_API_BASE);
   localStorage.setItem("API_ENABLED", "true");
-  localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+  localStorage.setItem("TENANT_CODE", targetTenantCode);
+  localStorage.setItem(ADMIN_MODE_KEY, getAdminMode());
   localStorage.setItem(API_BINDING_SIGNATURE_KEY, signature);
 })();
 
@@ -196,7 +241,7 @@ function openWindowSafe(url = "", target = "_blank") {
 ========================================================== */
 function getTenantCode() {
   const fromQuery = new URLSearchParams(window.location.search).get("tenant");
-  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || FIXED_TENANT_CODE;
+  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || getBoundTenantCode();
   return String(raw || "").trim().toLowerCase();
 }
 
@@ -1464,6 +1509,10 @@ window.ADMIN_SESSION_TS_KEY = ADMIN_SESSION_TS_KEY;
 window.ADMIN_SESSION_TTL_MS = ADMIN_SESSION_TTL_MS;
 window.ADMIN_TOKEN_KEY = ADMIN_TOKEN_KEY;
 window.ADMIN_USER_KEY = ADMIN_USER_KEY;
+window.ADMIN_MODE_KEY = ADMIN_MODE_KEY;
+window.CLIENT_TENANT_CODE = CLIENT_TENANT_CODE;
+window.SUPERUSER_TENANT_CODE = SUPERUSER_TENANT_CODE;
+window.SUPERUSER_USERNAME = SUPERUSER_USERNAME;
 window.WHATS_NUMBER = WHATS_NUMBER;
 window.DEMO_MODE = DEMO_MODE;
 
