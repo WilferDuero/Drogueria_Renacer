@@ -6,7 +6,7 @@
   <title>Login Admin - Droguería Renacer</title>
   <meta name="theme-color" content="#0b63d0">
   <link rel="manifest" href="manifest-admin.json">
-  <link rel="stylesheet" href="style.css?v=20260213a">
+  <link rel="stylesheet" href="style.css?v=20260311a">
 </head>
 <body class="login-page">
   <div class="login-container">
@@ -50,7 +50,7 @@
 
     <button id="loginBtn" class="btn btn--primary btn--full-width" type="button">Ingresar</button>
 
-    <div class="login-api">
+    <div class="login-api" style="display:none;">
       <button id="apiConfigBtn" class="btn btn--secondary btn--full-width" type="button">Configurar API</button>
       <button id="apiSyncBtn" class="btn btn--outline btn--full-width" type="button">Sincronizar</button>
       <div id="apiStatus" class="muted" style="font-size:12px;margin-top:6px;"></div>
@@ -67,8 +67,13 @@
 
   <div id="notif" class="notif" aria-live="polite" role="status"></div>
 
-  <script src="js/core.js?v=20260213a"></script>
-  <script src="js/auth.js?v=20260213a"></script>
-  <script src="js/admin_pwa.js?v=20260213a"></script>
+  <script>
+    localStorage.setItem("API_BASE", "https://wisand-core-api.onrender.com");
+    localStorage.setItem("API_ENABLED", "true");
+    localStorage.setItem("TENANT_CODE", "renacer-pharma");
+  </script>
+  <script src="js/core.js?v=20260311a"></script>
+  <script src="js/auth.js?v=20260311a"></script>
+  <script src="js/admin_pwa.js?v=20260311a"></script>
 </body>
 </html>

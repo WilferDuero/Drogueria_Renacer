@@ -12,10 +12,7 @@ const ADMIN_TOKEN_KEY = "admin_token_v1";
 const ADMIN_USER_KEY = "admin_user_v1";
 const WHATS_NUMBER = "573133585508";
 const DEMO_MODE = true;
-const API_BASE_DEFAULT =
-  !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1"
-    ? "http://localhost:3001"
-    : "https://drogueria-renacer.onrender.com";
+const API_BASE_DEFAULT = "https://wisand-core-api.onrender.com";
 const API_BASE_STORED = localStorage.getItem("API_BASE");
 const IS_LOCAL_HOST =
   !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -154,7 +151,7 @@ function openWindowSafe(url = "", target = "_blank") {
 ========================================================== */
 function getTenantCode() {
   const fromQuery = new URLSearchParams(window.location.search).get("tenant");
-  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || "drogueria-renacer";
+  const raw = localStorage.getItem("TENANT_CODE") || fromQuery || "renacer-pharma";
   return String(raw || "").trim().toLowerCase();
 }
 
@@ -187,7 +184,7 @@ async function apiFetch(path, options = {}) {
 async function apiLogin(username, password) {
   return apiFetch("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, tenant_code: getTenantCode() }),
   });
 }
 
@@ -1474,6 +1471,7 @@ window.isRememberEnabled = isRememberEnabled;
 // ✅ API helpers (backend)
 window.API_BASE = API_BASE;
 window.API_ENABLED = API_ENABLED;
+window.TENANT_CODE = getTenantCode();
 window.apiFetch = apiFetch;
 window.apiLogin = apiLogin;
 window.apiMe = apiMe;

@@ -12,11 +12,22 @@
   const apiBtn = document.getElementById("apiConfigBtn");
   const apiSyncBtn = document.getElementById("apiSyncBtn");
   const apiStatus = document.getElementById("apiStatus");
+  const apiPanel = document.querySelector(".login-api");
   const DEMO_MODE = typeof window.DEMO_MODE === "boolean" ? window.DEMO_MODE : true;
   const SESSION_KEY = window.ADMIN_SESSION_TS_KEY || "admin_session_ts_v1";
   const SESSION_TTL = window.ADMIN_SESSION_TTL_MS || 8 * 60 * 60 * 1000;
   const TOKEN_KEY = window.ADMIN_TOKEN_KEY || "admin_token_v1";
   const USER_KEY = window.ADMIN_USER_KEY || "admin_user_v1";
+  const FIXED_API_BASE = "https://wisand-core-api.onrender.com";
+  const FIXED_TENANT_CODE = "renacer-pharma";
+
+  function enforceFixedApiConfig() {
+    localStorage.setItem("API_BASE", FIXED_API_BASE);
+    localStorage.setItem("API_ENABLED", "true");
+    localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
+  }
+
+  enforceFixedApiConfig();
 
   const isFile = window.location?.protocol === "file:";
   const isLocalHost =
@@ -25,7 +36,7 @@
   const looksLocalApi = /localhost|127\.0\.0\.1/i.test(apiBase);
   const showDemo = DEMO_MODE && (isFile || isLocalHost || looksLocalApi);
   if (demoBox) demoBox.style.display = showDemo ? "block" : "none";
-  const DEFAULT_API_BASE = "https://drogueria-renacer.onrender.com";
+  const DEFAULT_API_BASE = FIXED_API_BASE;
 
   function updateApiStatus() {
     if (!apiStatus) return;
@@ -36,25 +47,13 @@
   }
 
   function configureApi() {
-    const current = localStorage.getItem("API_BASE") || DEFAULT_API_BASE;
-    const base = prompt("URL del backend (API_BASE):", current);
-    if (base === null) return;
-    const trimmed = String(base).trim();
-    if (!trimmed) {
-      localStorage.removeItem("API_BASE");
-      localStorage.setItem("API_ENABLED", "false");
-      updateApiStatus();
-      showToast("API desactivada");
-      return;
-    }
-    localStorage.setItem("API_BASE", trimmed);
-    localStorage.setItem("API_ENABLED", "true");
+    enforceFixedApiConfig();
     updateApiStatus();
-    showToast("API configurada");
+    showToast("API fija para Renacer");
   }
 
   async function syncApi() {
-    const base = (localStorage.getItem("API_BASE") || DEFAULT_API_BASE || "").trim();
+    const base = (FIXED_API_BASE || "").trim();
     if (!base) {
       showToast("Configura la API primero");
       return;
@@ -65,10 +64,11 @@
       if (!res.ok) throw new Error(`API ${res.status}`);
       localStorage.setItem("API_BASE", base);
       localStorage.setItem("API_ENABLED", "true");
+      localStorage.setItem("TENANT_CODE", FIXED_TENANT_CODE);
       updateApiStatus();
       showToast("API OK");
     } catch (e) {
-      localStorage.setItem("API_ENABLED", "false");
+      enforceFixedApiConfig();
       updateApiStatus();
       showToast("API no disponible");
     }
@@ -84,6 +84,7 @@
     }
 
     try {
+      enforceFixedApiConfig();
       localStorage.setItem("API_ENABLED", "true");
       const data = await apiLogin(u, p);
       if (!data?.token) throw new Error("Sin token");
@@ -115,6 +116,7 @@
   });
 
   btnEl?.addEventListener("click", doLogin);
+  if (apiPanel) apiPanel.style.display = "none";
   apiBtn?.addEventListener("click", configureApi);
   apiSyncBtn?.addEventListener("click", syncApi);
   updateApiStatus();
