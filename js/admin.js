@@ -100,11 +100,49 @@
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
   const adminUserInfo = document.getElementById("adminUserInfo");
 
+  [btnSyncAdmin, btnPushProductsAdmin, btnApiConfigAdmin].forEach((el) => {
+    if (el) el.dataset.technicalControl = "true";
+  });
+
+  function getTechnicalControls() {
+    const selector = [
+      "[data-technical-control='true']",
+      "button[id*='sync' i]",
+      "button[id*='api' i]",
+      "button[id*='debug' i]",
+      "button[id*='migr' i]",
+      "button[name*='sync' i]",
+      "button[name*='api' i]",
+      "button[name*='debug' i]",
+      "button[name*='migr' i]",
+    ].join(",");
+    return Array.from(document.querySelectorAll(selector));
+  }
+
   function setTechnicalControlsVisible(visible) {
-    const display = visible ? "" : "none";
-    if (btnSyncAdmin) btnSyncAdmin.style.display = display;
-    if (btnPushProductsAdmin) btnPushProductsAdmin.style.display = display;
-    if (btnApiConfigAdmin) btnApiConfigAdmin.style.display = display;
+    getTechnicalControls().forEach((el) => {
+      if (visible) {
+        const prevDisplay = el.dataset.prevDisplay || "";
+        el.style.display = prevDisplay;
+        el.hidden = false;
+        el.removeAttribute("aria-hidden");
+        return;
+      }
+
+      if (el.style.display && el.style.display !== "none") {
+        el.dataset.prevDisplay = el.style.display;
+      }
+      el.style.display = "none";
+      el.hidden = true;
+      el.setAttribute("aria-hidden", "true");
+    });
+  }
+
+  function isTechnicalControlElement(el) {
+    if (!el || typeof el.closest !== "function") return false;
+    return !!el.closest(
+      "[data-technical-control='true'], button[id*='sync' i], button[id*='api' i], button[id*='debug' i], button[id*='migr' i], button[name*='sync' i], button[name*='api' i], button[name*='debug' i], button[name*='migr' i]"
+    );
   }
 
   setTechnicalControlsVisible(false);
@@ -336,8 +374,7 @@
   function isTechnicalSuperuser(user) {
     const username = normalizeCode(user?.username || "");
     const tenantCode = normalizeCode(localStorage.getItem("TENANT_CODE"));
-    const mode = getModeFromStorage();
-    return mode === "superuser" && tenantCode === SUPER_TENANT_CODE && username === SUPER_USERNAME;
+    return tenantCode === SUPER_TENANT_CODE && username === SUPER_USERNAME;
   }
 
   function applyUiModeFromUser(user) {
@@ -350,6 +387,18 @@
     }
     enforceAdminApiBinding("client");
     setTechnicalControlsVisible(false);
+  }
+
+  const TECH_ACCESS_KEYS = [USER_KEY, "TENANT_CODE", ADMIN_MODE_KEY];
+
+  function refreshTechnicalAccessFromStorage() {
+    let storageUser = null;
+    try {
+      storageUser = JSON.parse(localStorage.getItem(USER_KEY) || "null");
+    } catch {
+      storageUser = null;
+    }
+    applyUiModeFromUser(storageUser || currentUser || null);
   }
 
   function setCurrentUser(user) {
@@ -407,7 +456,7 @@
 
   function configureApiFromPrompt() {
     if (!isTechnicalMode) {
-      showToast("Modo tecnico solo para WISAND");
+      showToast("No autorizado");
       return;
     }
     enforceAdminApiBinding();
@@ -416,7 +465,7 @@
 
   async function handleAdminSync() {
     if (!isTechnicalMode) {
-      showToast("Modo tecnico solo para WISAND");
+      showToast("No autorizado");
       return;
     }
     showToast("Sincronizando...");
@@ -525,7 +574,7 @@ function getProductsByItemRefs(items = []) {
 
   async function pushAllProductsToApi() {
     if (!isTechnicalMode) {
-      showToast("Modo tecnico solo para WISAND");
+      showToast("No autorizado");
       return false;
     }
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
@@ -784,6 +833,35 @@ function getProductsByItemRefs(items = []) {
 
   tabBtns.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (isTechnicalMode) return;
+      if (!isTechnicalControlElement(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      showToast("No autorizado");
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (isTechnicalMode) return;
+      const key = event.key;
+      if (key !== "Enter" && key !== " ") return;
+      const target = document.activeElement || event.target;
+      if (!isTechnicalControlElement(target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      showToast("No autorizado");
+    },
+    true
+  );
+
   btnPushProductsAdmin?.addEventListener("click", async () => {
     if (!confirm("¿Publicar todos los productos al servidor?")) return;
     await pushAllProductsToApi();
@@ -815,7 +893,7 @@ function getProductsByItemRefs(items = []) {
   });
   document.getElementById("saveApiConfig")?.addEventListener("click", () => {
     if (!isTechnicalMode) {
-      showToast("Modo tecnico solo para WISAND");
+      showToast("No autorizado");
       closeModal("apiConfigModal");
       return;
     }
@@ -1878,7 +1956,18 @@ function getProductsByItemRefs(items = []) {
   updateApiLastSyncLabel();
   checkApiHealth();
   updateBackupLabels();
+  refreshTechnicalAccessFromStorage();
   ensureAuthUser();
+
+  window.addEventListener("storage", (event) => {
+    if (!TECH_ACCESS_KEYS.includes(event.key)) return;
+    refreshTechnicalAccessFromStorage();
+  });
+
+  const TECH_ACCESS_POLL_MS = 3000;
+  setInterval(() => {
+    refreshTechnicalAccessFromStorage();
+  }, TECH_ACCESS_POLL_MS);
 
   /* ==========================================================
     ✅ Auto-sync (polling suave) para pedidos y ventas
@@ -1938,4 +2027,5 @@ function getProductsByItemRefs(items = []) {
     }
   });
 })();
+
 
