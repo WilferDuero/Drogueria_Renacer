@@ -100,9 +100,11 @@
   const btnApiConfigAdmin = document.getElementById("btnApiConfigAdmin");
   const adminUserInfo = document.getElementById("adminUserInfo");
 
-  [btnSyncAdmin, btnPushProductsAdmin, btnApiConfigAdmin].forEach((el) => {
-    if (el) el.dataset.technicalControl = "true";
-  });
+  function markTechnicalControls(list = []) {
+    list.forEach((el) => {
+      if (el) el.dataset.technicalControl = "true";
+    });
+  }
 
   function getTechnicalControls() {
     const selector = [
@@ -214,6 +216,16 @@
   const userRole = document.getElementById("userRole");
   const btnCreateUser = document.getElementById("btnCreateUser");
   const usersList = document.getElementById("usersList");
+
+  markTechnicalControls([
+    btnSyncAdmin,
+    btnPushProductsAdmin,
+    btnApiConfigAdmin,
+    btnClearVentas,
+    btnClearReviews,
+    btnClearOrders,
+  ]);
+  setTechnicalControlsVisible(false);
 
   // API status
   const apiStatusEl = document.getElementById("apiStatusAdmin");
@@ -1471,11 +1483,19 @@ function getProductsByItemRefs(items = []) {
   });
 
   btnClearVentas?.addEventListener("click", async () => {
+    if (!isTechnicalMode) {
+      showToast("No autorizado");
+      return;
+    }
     if (!confirm("¿Limpiar ventas (pruebas)?")) return;
     await clearSalesEverywhere("🧹 Ventas (pruebas) borradas");
   });
 
   btnClearReviews?.addEventListener("click", async () => {
+    if (!isTechnicalMode) {
+      showToast("No autorizado");
+      return;
+    }
     if (!confirm("¿Borrar TODAS las reseñas en todos los dispositivos?")) return;
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (enabled && typeof apiClearReviews === "function") {
@@ -1922,6 +1942,10 @@ function getProductsByItemRefs(items = []) {
   });
 
   btnClearOrders?.addEventListener("click", async () => {
+    if (!isTechnicalMode) {
+      showToast("No autorizado");
+      return;
+    }
     if (!confirm("¿Borrar TODOS los pedidos (pruebas)?")) return;
     const enabled = localStorage.getItem("API_ENABLED") !== "false";
     if (enabled && typeof apiClearOrders === "function") {
